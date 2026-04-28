@@ -1,42 +1,34 @@
 {
-  description = "Flake using pyproject.toml metadata";
-
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-  inputs.pyproject-nix.url = "github:pyproject-nix/pyproject.nix";
-  inputs.pyproject-nix.inputs.nixpkgs.follows = "nixpkgs";
+  inputs = {
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  };
 
   outputs =
-    { nixpkgs, pyproject-nix, ... }:
-    let
-      inherit (nixpkgs) lib;
-      forAllSystems = lib.genAttrs lib.systems.flakeExposed;
-
-      project = pyproject-nix.lib.project.loadPyproject {
-        projectRoot = ./.;
-      };
-
-      pythonAttr = "python3";
-    in
-    {
-      devShells = forAllSystems (system: {
-        default =
-          let
-            pkgs = nixpkgs.legacyPackages.${system};
-            python = pkgs.${pythonAttr};
-            pythonEnv = python.withPackages (project.renderers.withPackages { inherit python; });
-          in
-          pkgs.mkShell { packages = [ pythonEnv ]; };
-      });
-
-      packages = forAllSystems (
-        system:
+    inputs@{ flake-parts, ... }:
+    flake-parts.lib.mkFlake { inherit inputs; } {
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+        "x86_64-darwin"
+        "aarch64-darwin"
+      ];
+      perSystem =
+        {
+          system,
+          ...
+        }:
         let
-          pkgs = nixpkgs.legacyPackages.${system};
-          python = pkgs.${pythonAttr};
+          pkgs = import inputs.nixpkgs {
+            inherit system;
+          };
         in
         {
-          default = python.pkgs.buildPythonPackage (project.renderers.buildPythonPackage { inherit python; });
-        }
-      );
+          devShells.default = pkgs.mkShell {
+            packages = with pkgs; [
+              uv
+            ];
+          };
+        };
     };
 }
