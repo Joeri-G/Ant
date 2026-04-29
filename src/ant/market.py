@@ -32,6 +32,7 @@ Nomenclature:
 
 import numpy as np
 import networkx as nx
+import random
 from typing import List, Optional, Iterator, Any, Union
 
 
@@ -45,13 +46,17 @@ class BaseAgent:
     Attributes:
         id (int): Unique identifier for the agent
         received (np.ndarray): Array tracking incoming allocations from neighbors
-        resource_count (int): Current number of resources held by the agent
+        resource_count (float): Current number of resources held by the agent
         graph (nx.Graph): Reference to the market network structure
-        resource_value (int): Value multiplier for this agent's resources
+        resource_value (float): Value multiplier for this agent's resources
     """
 
     def __init__(
-        self, id: int, market: Optional[Market] = None, resource_value: int = 1, seed: Optional[int] = None
+        self,
+        id: int,
+        market: Optional[Market] = None,
+        resource_value: float = 1,
+        seed: Optional[int] = None,
     ):
         """
         Initialize a new agent.
@@ -69,13 +74,20 @@ class BaseAgent:
 
         self.id = id
         self.resource_count = 0
-        self.received: np.ndarray = np.array([], dtype=int)
+        self.received: Iterator[float] = np.zeros(
+            len(list(nx.neighbors(market.graph, id)) if market is not None else 0),
+            dtype=float,
+        )
         self.market = market
         self._resource_value = resource_value
         self._cached_endowment: Optional[int] = None
-        self.seed = seed
 
-    def resource_value(self) -> int:
+        self.random = random.Random()
+        self.random.seed(seed)
+
+        self.utility_over_time = (0, 0)  # value, weight
+
+    def resource_value(self) -> float:
         """Get the resource value multiplier for this agent."""
         return self._resource_value
 
@@ -90,9 +102,18 @@ class BaseAgent:
             This method should be overridden by subclasses to implement
             specific utility functions.
         """
-        return 0.0
+        neighbor_values = np.array(
+            [other.resource_value() for other in self.neighbours()]
+        )  # maybe this should be cached?
+        current_utility = np.sum(self.received @ neighbor_values)
+        time = self.utility_over_time[1]
+        utility_over_time = (self.utility_over_time[0] * time + current_utility) / (
+            time + 1
+        )
+        self.utility_over_time = (utility_over_time, time + 1)
+        return utility_over_time
 
-    def receive(self, incoming: List[int]) -> None:
+    def receive(self, incoming: List[float]) -> None:
         """
         Process incoming resource allocations from neighboring agents.
 
@@ -103,7 +124,7 @@ class BaseAgent:
             The order of incoming resources corresponds to the order of
             neighbors in the graph.
         """
-        self.received = np.array(incoming, dtype=int)
+        self.received = np.array(incoming, dtype=float)
 
     def produce(self, time: int) -> int:
         """
@@ -177,20 +198,24 @@ class BaseAgent:
             Override for more sophisticated allocation strategies.
         """
         num_neighbors = len(list(self.neighbours()))
-        allocation_vector = np.zeros(num_neighbors, dtype=int)
+        allocation_vector = np.zeros(num_neighbors, dtype=float)
 
-        if num_neighbors > 0:
-            allocation_vector[0] = self.resource_count
-            self.resource_count = 0
-
+        favorite_neighbour = self.random.randint(0, num_neighbors - 1)
+        second_favorite_neighbour = self.random.randint(0, num_neighbors - 1)
+        ratio = self.random.random()
+        allocation_vector[favorite_neighbour] = self.resource_count * ratio
+        allocation_vector[second_favorite_neighbour] = self.resource_count * (1 - ratio)
         return allocation_vector
 
-    def neighbours(self) -> Iterator[int]:
+    def send(self, allocation_vector: List[float]) -> None:
+        self.resource_count -= np.sum(allocation_vector)
+
+    def neighbours(self) -> Iterator[BaseAgent]:
         """
         Get the neighboring agents in the network.
 
         Returns:
-            Iterator[int]: Generator yielding neighbors
+            Iterator[BaseAgent]: Generator yielding neighbors
 
         Raises:
             ValueError: If graph is not set
@@ -218,7 +243,7 @@ class Market:
         graph: Optional[nx.Graph] = None,
         agents: Optional[List[BaseAgent]] = None,
         agent_type: type = BaseAgent,
-        seed: Optional[int] = None
+        seed: Optional[int] = None,
     ):
         """
         Initialize a new market simulation.
@@ -242,36 +267,58 @@ class Market:
         if graph is not None:
             self.graph = graph
         else:
-            self.graph: nx.Graph = nx.fast_gnp_random_graph(n, 0.35, seed=seed)
+            self.graph: nx.Graph = nx.fast_gnp_random_graph(n, 0.65, seed=seed)
 
         if agents is not None:
-            self.agents: np.ndarray = np.array(agents, dtype=BaseAgent)
+            self.agents: Iterator[BaseAgent] = np.array(agents, dtype=BaseAgent)
         else:
-            self.agents: np.ndarray = np.array(
-                [agent_type(id, self.graph, seed=seed + id) for id in range(n)], dtype=BaseAgent
+            self.agents: Iterator[BaseAgent] = np.array(
+                [agent_type(id, market=self, seed=seed + id) for id in range(n)],
+                dtype=BaseAgent,
             )
-        
-        for agent in self.agents:
-            agent.market = self
-        
+
         if seed is not None:
             self.seed = seed
 
-    def __len__(self) -> int:
-        """Return the number of agents in the market."""
-        return len(self.agents)
-
-    def step(self, time: int) -> None:
+    def step(self) -> None:
         """
         Execute one timestep of the market simulation.
-
-        Args:
-            time: Current timestep number
         """
-        # Placeholder for simulation logic
-        pass
+        time = self.market_time
+        # batch the allocation vectors for each agent
+        adj_mask = nx.to_numpy_array(self.graph, nodelist=range(len(self)), dtype=int)
+        X = np.zeros((len(self), len(self)), dtype=float)
 
-    def simulate(self, duration: int) -> None:
+        for agent in self.agents:
+            agent.produce(time)
+            agent.consume(time)
+            allocation = agent.allocate(time)
+            neighbor_indices = np.where(adj_mask[agent.id] > 0)[0]
+            if len(neighbor_indices) > 0:
+                X[agent.id, neighbor_indices] = allocation
+
+        # apply the allocation vectors
+        for agent in self.agents:
+            neighbor_indices = np.where(adj_mask[agent.id] > 0)[0]
+            if len(neighbor_indices) == 0:
+                continue
+            r_i = X[neighbor_indices, agent.id]
+            x_i = X[agent.id, neighbor_indices]
+            agent.send(x_i)
+            agent.receive(r_i)
+
+        print(X)
+
+        self.market_time = time + 1
+
+    def market_loss(self, optimal) -> float:
+        optimal_utility = np.array([optimal[agent.id] for agent in self.agents])
+        market_utility = np.array([agent.utility() for agent in self.agents])
+        return np.sqrt(np.sum(market_utility - optimal_utility)) / np.linalg.norm(
+            optimal
+        )
+
+    def simulate(self, duration: int, optimal: np.ndarray) -> List[float]:
         """
         Run the market simulation for a specified number of timesteps.
 
@@ -284,9 +331,14 @@ class Market:
         if duration < 0:
             raise ValueError("Duration must be non-negative")
 
+        results = np.zeros(duration)
+        self.market_time = 0
         for t in range(duration):
-            self.step(t)
-            self.market_time = t + 1
+            self.step()
+            val = self.market_loss(optimal)
+            results[t] = val
+
+        return results
 
     def neighbours(self, agent: Union[BaseAgent, int]) -> Iterator[BaseAgent]:
         """
@@ -294,7 +346,7 @@ class Market:
 
         Args:
             agent: The agent whose neighbours should be returned
-        
+
         Returns:
             Iterator[BaseAgent]: Iterator over neighbours
         """
@@ -304,9 +356,13 @@ class Market:
             id = agent.id
         else:
             raise TypeError("either provide an id or an agent")
-        edges = nx.neighbors(id)
+        edges = nx.neighbors(self.graph, id)
         return map(lambda id: self.agents[id], edges)
 
     def __repr__(self) -> str:
         """Return a string representation of the market."""
         return f"Market(graph={self.graph}, agents={len(self.agents)} agents)"
+
+    def __len__(self) -> int:
+        """Return the number of agents in the market."""
+        return len(self.agents)
