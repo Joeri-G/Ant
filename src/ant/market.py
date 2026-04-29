@@ -306,11 +306,12 @@ class Market:
             x_i = X[agent.id, neighbor_indices]
             agent.send(x_i)
             agent.receive(r_i)
-
         self.market_time = time + 1
 
+    # Broken
+    # TODO: adhere to Hellinga, 2025, 4.4
     def market_loss(self, optimal) -> float:
-        optimal_utility = np.array([optimal[agent.id] for agent in self.agents])
+        optimal_utility = np.array([np.sum(optimal[:, agent.id]) for agent in self.agents])
         market_utility = np.array([agent.utility() for agent in self.agents])
         return np.sqrt(np.sum(market_utility - optimal_utility)) / np.linalg.norm(
             optimal
