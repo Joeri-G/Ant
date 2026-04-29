@@ -36,6 +36,9 @@ from typing import List, Optional, Iterator, Any, Union
 
 
 class BaseAgent:
+    market: market
+    id: int
+
     """
     Base class representing an agent in the market simulation.
 
@@ -201,6 +204,9 @@ class BaseAgent:
 
 
 class Market:
+    graph: nx.Graph = None
+    agents: List[BaseAgent] = []
+    seed: Optional[int] = None
     """
     Represents a market simulation environment with interconnected agents.
 
@@ -255,10 +261,10 @@ class Market:
             self.graph = nx.fast_gnp_random_graph(n, 0.35)
 
         if agents is not None:
-            self.agents = np.array(agents, dtype=object)
+            self.agents = np.array(agents, dtype=BaseAgent)
         else:
             self.agents = np.array(
-                [agent_type(i, self.graph) for i in range(n)], dtype=object
+                [agent_type(i, self.graph) for i in range(n)], dtype=BaseAgent
             )
         
         if seed is not None:
