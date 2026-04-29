@@ -36,9 +36,6 @@ from typing import List, Optional, Iterator, Any, Union
 
 
 class BaseAgent:
-    market: market
-    id: int
-
     """
     Base class representing an agent in the market simulation.
 
@@ -72,14 +69,11 @@ class BaseAgent:
 
         self.id = id
         self.resource_count = 0
-        self.received = np.array([], dtype=int)
+        self.received: np.ndarray = np.array([], dtype=int)
         self.market = market
-        self._resource_value = (
-            resource_value
-        )
+        self._resource_value = resource_value
         self._cached_endowment: Optional[int] = None
 
-    @property
     def resource_value(self) -> int:
         """Get the resource value multiplier for this agent."""
         return self._resource_value
@@ -204,9 +198,6 @@ class BaseAgent:
 
 
 class Market:
-    graph: nx.Graph = None
-    agents: List[BaseAgent] = []
-    seed: Optional[int] = None
     """
     Represents a market simulation environment with interconnected agents.
 
@@ -258,12 +249,12 @@ class Market:
                     break
         else:
             # Create random graph if none provided
-            self.graph = nx.fast_gnp_random_graph(n, 0.35)
+            self.graph: nx.Graph = nx.fast_gnp_random_graph(n, 0.35)
 
         if agents is not None:
-            self.agents = np.array(agents, dtype=BaseAgent)
+            self.agents: np.ndarray = np.array(agents, dtype=BaseAgent)
         else:
-            self.agents = np.array(
+            self.agents: np.ndarray = np.array(
                 [agent_type(i, self.graph) for i in range(n)], dtype=BaseAgent
             )
         
