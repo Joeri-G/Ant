@@ -32,7 +32,7 @@ Nomenclature:
 
 import numpy as np
 import networkx as nx
-from typing import List, Optional, Iterator, Any
+from typing import List, Optional, Iterator, Any, Union
 
 
 class BaseAgent:
@@ -51,7 +51,7 @@ class BaseAgent:
     """
 
     def __init__(
-        self, id: int, graph: Optional[nx.Graph] = None, resource_value: int = 1
+        self, id: int, market: Optional[Market] = None, resource_value: int = 1
     ):
         """
         Initialize a new agent.
@@ -70,7 +70,7 @@ class BaseAgent:
         self.id = id
         self.resource_count = 0
         self.received = np.array([], dtype=int)
-        self.graph = graph
+        self.market = market
         self._resource_value = (
             resource_value
         )
@@ -189,17 +189,15 @@ class BaseAgent:
 
     def neighbours(self) -> Iterator[int]:
         """
-        Get the IDs of neighboring agents in the network.
+        Get the neighboring agents in the network.
 
         Returns:
-            Iterator[int]: Generator yielding neighbor agent IDs
+            Iterator[int]: Generator yielding neighbors
 
         Raises:
             ValueError: If graph is not set
         """
-        if self.graph is None:
-            raise ValueError("Graph not set for agent")
-        return nx.neighbors(self.graph, self.id)
+        return self.market.neighbours(self.id)
 
 
 class Market:
@@ -222,6 +220,7 @@ class Market:
         graph: Optional[nx.Graph] = None,
         agents: Optional[List[BaseAgent]] = None,
         agent_type: type = BaseAgent,
+        seed: Optional[int] = None
     ):
         """
         Initialize a new market simulation.
@@ -231,6 +230,7 @@ class Market:
             graph: Pre-existing network graph (optional)
             agents: Pre-created list of agents (optional)
             agent_type: Class type for creating agents (default: BaseAgent)
+            seed: The seed used for graph generation (optional)
 
         Raises:
             ValueError: If both graph and n are provided without agents
@@ -260,6 +260,9 @@ class Market:
             self.agents = np.array(
                 [agent_type(i, self.graph) for i in range(n)], dtype=object
             )
+        
+        if seed is not None:
+            self.seed = seed
 
     def __len__(self) -> int:
         """Return the number of agents in the market."""
@@ -295,6 +298,16 @@ class Market:
         for t in range(duration):
             self.step(t)
             self.market_time = t + 1
+
+    def neighbours(self, agent: Union[BaseAgent, int]) -> Iterator[BaseAgent]:
+        if type(agent) == int:
+            id = agent
+        elif issubclass(agent_type, BaseAgent):
+            id = agent.id
+        else:
+            raise TypeError("either provide an id or an agent")
+        edges = nx.neighbors(id)
+        return map(lambda id: self.agents[id], edges)
 
     def __repr__(self) -> str:
         """Return a string representation of the market."""
