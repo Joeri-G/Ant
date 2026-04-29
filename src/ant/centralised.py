@@ -41,7 +41,7 @@ def P4(market: Market) -> float:
     # Weighted sum for each agent i
     weighted_sums = allocation_matrix @ resource_values
     log_terms = cp.log(weighted_sums)
-    objective_expr = cp.sum(alphas * log_terms)
+    objective_expr = cp.sum(alphas @ log_terms)
     
     prob = cp.Problem(cp.Maximize(objective_expr), constraints)
 

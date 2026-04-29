@@ -249,7 +249,7 @@ class Market:
                     break
         else:
             # Create random graph if none provided
-            self.graph: nx.Graph = nx.fast_gnp_random_graph(n, 0.35)
+            self.graph: nx.Graph = nx.fast_gnp_random_graph(n, 0.35, seed=seed)
 
         if agents is not None:
             self.agents: np.ndarray = np.array(agents, dtype=BaseAgent)
