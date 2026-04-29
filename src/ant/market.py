@@ -51,7 +51,7 @@ class BaseAgent:
     """
 
     def __init__(
-        self, id: int, market: Optional[Market] = None, resource_value: int = 1
+        self, id: int, market: Optional[Market] = None, resource_value: int = 1, seed: Optional[int] = None
     ):
         """
         Initialize a new agent.
@@ -73,6 +73,7 @@ class BaseAgent:
         self.market = market
         self._resource_value = resource_value
         self._cached_endowment: Optional[int] = None
+        self.seed = seed
 
     def resource_value(self) -> int:
         """Get the resource value multiplier for this agent."""
@@ -240,23 +241,18 @@ class Market:
 
         if graph is not None:
             self.graph = graph
-        elif agents is not None:
-            self.graph = nx.Graph()
-            # Build graph from existing agents
-            for agent in agents:
-                if agent.graph is not None:
-                    self.graph = agent.graph
-                    break
         else:
-            # Create random graph if none provided
             self.graph: nx.Graph = nx.fast_gnp_random_graph(n, 0.35, seed=seed)
 
         if agents is not None:
             self.agents: np.ndarray = np.array(agents, dtype=BaseAgent)
         else:
             self.agents: np.ndarray = np.array(
-                [agent_type(i, self.graph) for i in range(n)], dtype=BaseAgent
+                [agent_type(id, self.graph, seed=seed + id) for id in range(n)], dtype=BaseAgent
             )
+        
+        for agent in self.agents:
+            agent.market = self
         
         if seed is not None:
             self.seed = seed
@@ -271,10 +267,6 @@ class Market:
 
         Args:
             time: Current timestep number
-
-        Note:
-            This method should be overridden to implement specific market dynamics.
-            Base implementation does nothing.
         """
         # Placeholder for simulation logic
         pass
@@ -297,6 +289,15 @@ class Market:
             self.market_time = t + 1
 
     def neighbours(self, agent: Union[BaseAgent, int]) -> Iterator[BaseAgent]:
+        """
+        Run the market simulation for a specified number of timesteps.
+
+        Args:
+            agent: The agent whose neighbours should be returned
+        
+        Returns:
+            Iterator[BaseAgent]: Iterator over neighbours
+        """
         if type(agent) == int:
             id = agent
         elif issubclass(agent_type, BaseAgent):
