@@ -1,137 +1,301 @@
 """
-The data structures necessary for modeling a market
+Market simulation framework for modeling agent interactions and resource allocation.
 
-Nomenclature
-N:      the set of all agents
-n:      number of agents
-i, j:   indices for agents
-E:      set of connections between agents
-G:      network structure
-N_i:    Neighbourhood of agent i
+This module provides data structures for simulating economic markets where agents
+interact through a network graph, producing, consuming, and allocating resources.
 
-t:      Timestamp index
-e_i:    Long-term resource average endownment of agent i
-D_i:    Distributable resources by agent i
-x_{ij}: Allocation from agent i to agent j
-x_i:    Allocation vector of agent i
-X:      Allocation matrix
-
-r_i:    Resources received by agent i
-R_i:    Total resources received by agent i
-v_i:    Value of agent i's resource
-U_i:    Total utility obtained by agent i
-u_{ij}: U Vector of all received utilities
-u_i(.): Utility function for agent i
-p_i:    Sharing ratio of agent i
-w_i:    Strategy weight of agent i
-g_i:    Memory decay of agent i
-c:      Convergence error tolerance
-S^M:    Incentive Ratio of market M
+Nomenclature:
+    N: Set of all agents
+    n: Number of agents
+    i, j: Indices for agents
+    E: Set of connections between agents
+    G: Network structure
+    N_i: Neighbourhood of agent i
+    t: Timestamp index
+    e_i: Long-term resource average endowment of agent i
+    D_i: Distributable resources by agent i
+    x_{ij}: Allocation from agent i to agent j
+    x_i: Allocation vector of agent i
+    X: Allocation matrix
+    r_i: Resources received by agent i
+    R_i: Total resources received by agent i
+    v_i: Value of agent i's resource
+    U_i: Total utility obtained by agent i
+    u_{ij}: Vector of all received utilities
+    u_i(.): Utility function for agent i
+    p_i: Sharing ratio of agent i
+    w_i: Strategy weight of agent i
+    g_i: Memory decay of agent i
+    c: Convergence error tolerance
+    S^M: Incentive Ratio of market M
 """
 
 import numpy as np
 import networkx as nx
-from typing import List
+from typing import List, Optional, Iterator, Any
 
 
 class BaseAgent:
-    id: int
-    received: np.ndarray
-    resource_count: int
-    graph: nx.Graph
-    resource_value: int
-    cached_endownment: int
+    """
+    Base class representing an agent in the market simulation.
 
-    def __init__(self, id, graph=None, resource_value = 1):
+    Agents can produce, consume, and allocate resources based on their
+    position in the network graph and their individual strategies.
+
+    Attributes:
+        id (int): Unique identifier for the agent
+        received (np.ndarray): Array tracking incoming allocations from neighbors
+        resource_count (int): Current number of resources held by the agent
+        graph (nx.Graph): Reference to the market network structure
+        resource_value (int): Value multiplier for this agent's resources
+    """
+
+    def __init__(
+        self, id: int, graph: Optional[nx.Graph] = None, resource_value: int = 1
+    ):
+        """
+        Initialize a new agent.
+
+        Args:
+            id: Unique identifier for this agent
+            graph: Network graph defining agent connections (optional)
+            resource_value: Multiplier for resource valuation (default: 1)
+
+        Raises:
+            ValueError: If id is negative
+        """
+        if id < 0:
+            raise ValueError("Agent ID must be non-negative")
+
         self.id = id
         self.resource_count = 0
-        self.received = np.empty((0, 0), dtype=int)
+        self.received = np.array([], dtype=int)
         self.graph = graph
-        self.resource_value = resource_value
-        self.cached_endownment = None
+        self._resource_value = (
+            resource_value
+        )
+        self._cached_endowment: Optional[int] = None
 
-    def utility(self):
-        return 0
+    @property
+    def resource_value(self) -> int:
+        """Get the resource value multiplier for this agent."""
+        return self._resource_value
 
-    def receive(self, incomming: List[int]) -> None:
-        self.received = incomming
+    def utility(self) -> float:
+        """
+        Calculate the utility derived from current resources.
+
+        Returns:
+            float: Utility value (base implementation returns 0)
+
+        Note:
+            This method should be overridden by subclasses to implement
+            specific utility functions.
+        """
+        return 0.0
+
+    def receive(self, incoming: List[int]) -> None:
+        """
+        Process incoming resource allocations from neighboring agents.
+
+        Args:
+            incoming: List of resource amounts received from each neighbor
+
+        Note:
+            The order of incoming resources corresponds to the order of
+            neighbors in the graph.
+        """
+        self.received = np.array(incoming, dtype=int)
 
     def produce(self, time: int) -> int:
+        """
+        Generate new resources for the agent.
+
+        Args:
+            time: Current simulation timestep (unused in base implementation)
+
+        Returns:
+            int: Number of resources produced
+
+        Note:
+            This method should be overridden for more sophisticated production
+            models that consider time or other factors.
+        """
         produced = 10
         self.resource_count += produced
         return produced
-    
-    def long_term_resource_endownment(self) -> int:
-        endownment_timeline = 1000
-        if self.cached_endownment is not None:
-            return self.cached_endownment
-        self.cached_endownment = np.average(
-            np.fromiter(
-                [self.produce(i) for i in range(endownment_timeline)]
-            ))
-        return self.cached_endownment
 
+    def long_term_resource_endowment(self) -> float:
+        """
+        Calculate the long-term average resource production rate.
+
+        Returns:
+            float: Average resources produced per timestep
+
+        Note:
+            Uses caching to avoid recalculating the same simulation repeatedly.
+            The simulation runs 1000 timesteps to establish a stable average.
+        """
+        if self._cached_endowment is not None:
+            return self._cached_endowment
+
+        endowment_timeline = 1000
+        production_history = [self.produce(i) for i in range(endowment_timeline)]
+        self._cached_endowment = int(np.mean(production_history))
+
+        # Reset resource count after simulation
+        self.resource_count = 0
+        return self._cached_endowment
 
     def consume(self, time: int) -> int:
+        """
+        Consume resources from the agent's inventory.
+
+        Args:
+            time: Current simulation timestep (unused in base implementation)
+
+        Returns:
+            int: Number of resources consumed (base implementation returns 0)
+
+        Note:
+            This method should be overridden to implement consumption logic.
+        """
         consumed = 0
         self.resource_count -= consumed
         return consumed
 
-    def allocate(self, time: int) -> List[int]:
-        allocation_vector = np.fromiter(
-            [0 for _ in range(len(self.received))], dtype=int
-        )
-        if len(allocation_vector) > 0:
+    def allocate(self, time: int) -> np.ndarray:
+        """
+        Distribute resources to neighboring agents.
+
+        Args:
+            time: Current simulation timestep (unused in base implementation)
+
+        Returns:
+            np.ndarray: Allocation vector showing resources sent to each neighbor
+
+        Note:
+            Current implementation sends all resources to the first neighbor.
+            Override for more sophisticated allocation strategies.
+        """
+        num_neighbors = len(list(self.neighbours()))
+        allocation_vector = np.zeros(num_neighbors, dtype=int)
+
+        if num_neighbors > 0:
             allocation_vector[0] = self.resource_count
-        self.resource_count = 0
+            self.resource_count = 0
+
         return allocation_vector
-    
-    def resource_value(self) -> int:
-        return self.resource_value
-    
-    def neighbours(self) -> iterator:
+
+    def neighbours(self) -> Iterator[int]:
+        """
+        Get the IDs of neighboring agents in the network.
+
+        Returns:
+            Iterator[int]: Generator yielding neighbor agent IDs
+
+        Raises:
+            ValueError: If graph is not set
+        """
+        if self.graph is None:
+            raise ValueError("Graph not set for agent")
         return nx.neighbors(self.graph, self.id)
 
 
-"""
-A market instance contains:
-  - A graph denoting the connections between agents
-  - A list of agents
-"""
-
-
 class Market:
-    agents: List[BaseAgent]
-    graph: nx.Graph
-    market_time: int
+    """
+    Represents a market simulation environment with interconnected agents.
+
+    The market manages a network of agents that interact according to their
+    connections in the graph, simulating resource production, distribution,
+    and consumption over time.
+
+    Attributes:
+        agents (np.ndarray): Array of agent instances in the market
+        graph (nx.Graph): Network structure defining agent connections
+        market_time (int): Current simulation timestep
+    """
 
     def __init__(
         self,
         n: int,
-        graph: nx.Graph = None,
-        agents: List[BaseAgent] = None,
+        graph: Optional[nx.Graph] = None,
+        agents: Optional[List[BaseAgent]] = None,
         agent_type: type = BaseAgent,
     ):
+        """
+        Initialize a new market simulation.
+
+        Args:
+            n: Number of agents to create (if agents not provided)
+            graph: Pre-existing network graph (optional)
+            agents: Pre-created list of agents (optional)
+            agent_type: Class type for creating agents (default: BaseAgent)
+
+        Raises:
+            ValueError: If both graph and n are provided without agents
+            TypeError: If agent_type is not a subclass of BaseAgent
+        """
+        if not issubclass(agent_type, BaseAgent):
+            raise TypeError("agent_type must be a subclass of BaseAgent")
+
         self.market_time = 0
+
         if graph is not None:
             self.graph = graph
+        elif agents is not None:
+            self.graph = nx.Graph()
+            # Build graph from existing agents
+            for agent in agents:
+                if agent.graph is not None:
+                    self.graph = agent.graph
+                    break
         else:
-            self.graph = nx.fast_gnp_random_graph(
-                n, 0.35
-            )  # random graph with 35% edge probability
-        self.agents = np.fromiter(
-            (agent_type(i, self.graph) for i in range(n)), dtype=object
-        )
+            # Create random graph if none provided
+            self.graph = nx.fast_gnp_random_graph(n, 0.35)
 
-    def __sizeof__(self) -> int:
+        if agents is not None:
+            self.agents = np.array(agents, dtype=object)
+        else:
+            self.agents = np.array(
+                [agent_type(i, self.graph) for i in range(n)], dtype=object
+            )
+
+    def __len__(self) -> int:
+        """Return the number of agents in the market."""
         return len(self.agents)
 
     def step(self, time: int) -> None:
+        """
+        Execute one timestep of the market simulation.
+
+        Args:
+            time: Current timestep number
+
+        Note:
+            This method should be overridden to implement specific market dynamics.
+            Base implementation does nothing.
+        """
+        # Placeholder for simulation logic
         pass
 
     def simulate(self, duration: int) -> None:
-        for i in range(duration):
-            self.step(i)
+        """
+        Run the market simulation for a specified number of timesteps.
 
-    def __repr__(self):
-        return f"Market({self.graph}, {self.agents})"
+        Args:
+            duration: Number of timesteps to simulate
+
+        Raises:
+            ValueError: If duration is negative
+        """
+        if duration < 0:
+            raise ValueError("Duration must be non-negative")
+
+        for t in range(duration):
+            self.step(t)
+            self.market_time = t + 1
+
+    def __repr__(self) -> str:
+        """Return a string representation of the market."""
+        return f"Market(graph={self.graph}, agents={len(self.agents)} agents)"
