@@ -75,7 +75,7 @@ class BaseAgent:
         self.id = id
         self.resource_count = 0
         self.received: Iterator[float] = np.zeros(
-            len(list(nx.neighbors(market.graph, id)) if market is not None else 0),
+            len(list(nx.neighbors(market.graph, id))) if market is not None else 0,
             dtype=float,
         )
         self.market = market
@@ -197,7 +197,7 @@ class BaseAgent:
             Current implementation sends all resources to the first neighbor.
             Override for more sophisticated allocation strategies.
         """
-        num_neighbors = len(list(self.neighbours()))
+        num_neighbors = len(self.received)
         allocation_vector = np.zeros(num_neighbors, dtype=float)
 
         favorite_neighbour = self.random.randint(0, num_neighbors - 1)
@@ -267,7 +267,7 @@ class Market:
         if graph is not None:
             self.graph = graph
         else:
-            self.graph: nx.Graph = nx.fast_gnp_random_graph(n, 0.65, seed=seed)
+            self.graph: nx.Graph = nx.fast_gnp_random_graph(n, 0.45, seed=seed)
 
         if agents is not None:
             self.agents: Iterator[BaseAgent] = np.array(agents, dtype=BaseAgent)
@@ -306,8 +306,6 @@ class Market:
             x_i = X[agent.id, neighbor_indices]
             agent.send(x_i)
             agent.receive(r_i)
-
-        print(X)
 
         self.market_time = time + 1
 

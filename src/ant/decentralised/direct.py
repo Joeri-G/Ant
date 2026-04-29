@@ -1,23 +1,33 @@
+import numpy as np
 from ant.decentralised.utility import k_highest_indices
+from ant.market import BaseAgent
 from typing import List
 
 """
 This module contains decentralised strategies that use information about the agents own node.
 """
 
-"""
-    Divide the resources proportional to the resources received in the previous round.
-    The remainder is divided over the top contributers
-"""
 
+class ProportionalAgent(BaseAgent):
+    def __init__(
+        self,
+        id: int,
+        market: Optional[Market] = None,
+        resource_value: float = 1,
+        seed: Optional[int] = None,
+    ):
+        super().__init__(id, market=market, resource_value=resource_value, seed=seed)
 
-def proportional(received: List[int], surplus: int) -> List[int]:
-    total_received = sum(received)
-    fractions = [
-        int(float(v) / float(total_received) * float(surplus))
-        for i, v in enumerate(received)
-    ]
-    remainder = surplus - sum(fractions)
-    for i in k_highest_indices(fractions, remainder):
-        fractions[i] += 1
-    return fractions
+    def allocate(self, time: int) -> np.ndarray:
+        num_neighbors = len(self.received)
+        total_received = np.sum(self.received)
+        if total_received == 0: # default -> spread across neighbours
+            return np.ones(num_neighbors) / num_neighbors * self.resource_count
+        fractions = np.array(
+            [
+                (v / total_received) * self.resource_count
+                for i, v in enumerate(self.received)
+            ]
+        )
+
+        return fractions
