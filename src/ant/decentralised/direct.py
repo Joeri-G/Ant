@@ -21,7 +21,7 @@ class ProportionalAgent(BaseAgent):
     def allocate(self, time: int) -> np.ndarray:
         num_neighbors = len(self.received)
         total_received = np.sum(self.received)
-        if total_received == 0: # default -> spread across neighbours
+        if total_received == 0:  # default -> spread across neighbours
             return np.ones(num_neighbors) / num_neighbors * self.resource_count
         fractions = np.array(
             [
