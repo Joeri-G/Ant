@@ -39,12 +39,16 @@ class BaseAgent:
     received: np.ndarray
     resource_count: int
     graph: nx.Graph
+    resource_value: int
+    cached_endownment: int
 
-    def __init__(self, id, graph=None):
+    def __init__(self, id, graph=None, resource_value = 1):
         self.id = id
         self.resource_count = 0
         self.received = np.empty((0, 0), dtype=int)
         self.graph = graph
+        self.resource_value = resource_value
+        self.cached_endownment = None
 
     def utility(self):
         return 0
@@ -56,6 +60,17 @@ class BaseAgent:
         produced = 10
         self.resource_count += produced
         return produced
+    
+    def long_term_resource_endownment(self) -> int:
+        endownment_timeline = 1000
+        if self.cached_endownment is not None:
+            return self.cached_endownment
+        self.cached_endownment = np.average(
+            np.fromiter(
+                [self.produce(i) for i in range(endownment_timeline)]
+            ))
+        return self.cached_endownment
+
 
     def consume(self, time: int) -> int:
         consumed = 0
@@ -70,6 +85,12 @@ class BaseAgent:
             allocation_vector[0] = self.resource_count
         self.resource_count = 0
         return allocation_vector
+    
+    def resource_value(self) -> int:
+        return self.resource_value
+    
+    def neighbours(self) -> iterator:
+        return nx.neighbors(self.graph, self.id)
 
 
 """
@@ -101,6 +122,9 @@ class Market:
         self.agents = np.fromiter(
             (agent_type(i, self.graph) for i in range(n)), dtype=object
         )
+
+    def __sizeof__(self) -> int:
+        return len(self.agents)
 
     def step(self, time: int) -> None:
         pass
