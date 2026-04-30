@@ -35,6 +35,8 @@ import networkx as nx
 import random
 from typing import List, Optional, Iterator, Any, Union
 
+BASE_ENDOWMENT_RANGE = (1, 5)
+BASE_DISTRIBUTABLE_VARIANCE = 0.1
 
 class BaseAgent:
     """
@@ -85,7 +87,12 @@ class BaseAgent:
         self.random = random.Random()
         self.random.seed(seed)
 
-        self.utility_over_time = (0, 0)  # value, weight
+        self.endowment = self.random.uniform(BASE_ENDOWMENT_RANGE[0], BASE_ENDOWMENT_RANGE[1])
+
+        self._utility_over_time = {
+            "value": 0,
+            "weight": 0
+        }  # value, weight
 
     def resource_value(self) -> float:
         """Get the resource value multiplier for this agent."""
@@ -106,17 +113,21 @@ class BaseAgent:
             [other.resource_value() for other in self.neighbours()]
         )  # maybe this should be cached?
 
-        # compute the utility of an arbitrary allocation (for example the equilibrium allocation)
-        if received is not None:
-            return np.sum(received @ neighbor_values)
-        current_utility = np.sum(self.received @ neighbor_values)
-        time = self.utility_over_time[1]
-        utility_over_time = (self.utility_over_time[0] * time + current_utility) / (
+        received = self.received if received is None else received
+        return np.sum(received @ neighbor_values)
+    
+    def utility_over_time(self) -> float:
+        """
+        Keep track of the utility in previous states
+        """
+        current_utility = self.utility()
+        time = self._utility_over_time["weight"]
+        new_utility = (self._utility_over_time["value"] * time + current_utility) / (
             time + 1
         )
-        self.utility_over_time = (utility_over_time, time + 1)
-        return utility_over_time
-
+        self._utility_over_time = {"value": new_utility, "weight": time + 1}
+        return new_utility
+        
     def receive(self, incoming: List[float]) -> None:
         """
         Process incoming resource allocations from neighboring agents.
@@ -144,7 +155,7 @@ class BaseAgent:
             This method should be overridden for more sophisticated production
             models that consider time or other factors.
         """
-        produced = 10
+        produced = self.random.gauss(self.endowment, BASE_DISTRIBUTABLE_VARIANCE)
         self.resource_count += produced
         return produced
 
@@ -331,10 +342,10 @@ class Market:
 
         adj_mask = nx.to_numpy_array(self.graph, nodelist=range(len(self)), dtype=int)
 
-        current_utility = np.array([agent.utility() for agent in self.agents])
+        average_utility = np.array([agent.utility_over_time() for agent in self.agents])
         eq_utility = np.array([eq_utility(agent) for agent in self.agents])
 
-        return np.sqrt(np.sum(np.square(current_utility - eq_utility))) / np.linalg.norm(eq_utility)
+        return np.sqrt(np.sum(np.square(average_utility - eq_utility))) / np.linalg.norm(eq_utility)
 
     def set_market_equilibrium(self, eq_allocation, eq_utility):
         self.equilibrium_utility = eq_utility
