@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 BASE_ENDOWMENT_RANGE = (1, 5)
 BASE_VALUE_RANGE = (1, 5)
 BASE_DISTRIBUTABLE_VARIANCE = 0.1
-
+BASE_UTILITY_TIMELINE = 1000
 
 class BaseAgent:
     """
@@ -59,13 +59,12 @@ class BaseAgent:
         self._resource_value = self.random.uniform(
             BASE_VALUE_RANGE[0], BASE_VALUE_RANGE[1]
         )
-        self._cached_endowment: Optional[int] = None
-
         self.endowment = self.random.uniform(
             BASE_ENDOWMENT_RANGE[0], BASE_ENDOWMENT_RANGE[1]
         )
 
-        self._utility_over_time = {"value": 0, "weight": 0}  # value, weight
+        self._utility_over_time = np.zeros(BASE_UTILITY_TIMELINE)
+        self._utility_counter = 0
 
     def resource_value(self) -> float:
         """Get the resource value multiplier for this agent."""
@@ -93,26 +92,10 @@ class BaseAgent:
         """
         Keep track of the utility in previous states
         """
-        current_utility = self.utility()
-        time = self._utility_over_time["weight"]
-        new_utility = (self._utility_over_time["value"] * time + current_utility) / (
-            time + 1
-        )
-        self._utility_over_time = {"value": new_utility, "weight": time + 1}
-        return new_utility
-
-    def receive(self, incoming: List[float]) -> None:
-        """
-        Process incoming resource allocations from neighboring agents.
-
-        Args:
-            incoming: List of resource amounts received from each neighbor
-
-        Note:
-            The order of incoming resources corresponds to the order of
-            neighbors in the graph.
-        """
-        self.received = np.array(incoming, dtype=float)
+        utility = self.utility()
+        self._utility_over_time[self._utility_counter] = utility
+        self._utility_counter += 1
+        return np.mean(self._utility_over_time[:self._utility_counter])
 
     def produce(self, time: int) -> int:
         """
@@ -138,21 +121,8 @@ class BaseAgent:
 
         Returns:
             float: Average resources produced per timestep
-
-        Note:
-            Uses caching to avoid recalculating the same simulation repeatedly.
-            The simulation runs 1000 timesteps to establish a stable average.
         """
-        if self._cached_endowment is not None:
-            return self._cached_endowment
-
-        endowment_timeline = 1000
-        production_history = [self.produce(i) for i in range(endowment_timeline)]
-        self._cached_endowment = int(np.mean(production_history))
-
-        # Reset resource count after simulation
-        self.resource_count = 0
-        return self._cached_endowment
+        return self.endowment
 
     def consume(self, time: int) -> int:
         """
@@ -197,6 +167,19 @@ class BaseAgent:
 
     def send(self, allocation_vector: List[float]) -> None:
         self.resource_count -= np.sum(allocation_vector)
+
+    def receive(self, incoming: List[float]) -> None:
+        """
+        Process incoming resource allocations from neighboring agents.
+
+        Args:
+            incoming: List of resource amounts received from each neighbor
+
+        Note:
+            The order of incoming resources corresponds to the order of
+            neighbors in the graph.
+        """
+        self.received = np.array(incoming, dtype=float)
 
     def neighbours(self) -> Iterator[BaseAgent]:
         """
