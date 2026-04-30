@@ -1,6 +1,6 @@
 import numpy as np
 from ant.decentralised.utility import k_highest_indices
-from ant.market import BaseAgent
+from ant.agent import BaseAgent
 from typing import List
 
 """
@@ -24,13 +24,14 @@ class ProportionalAgent(BaseAgent):
         num_neighbors = len(self.received)
         values = np.array([other.resource_value() for other in self.neighbours()])
         total_received = np.sum(self.received @ values)
-        
+
         if total_received == 0:  # default -> spread across neighbours
             return np.ones(num_neighbors) / num_neighbors * self.resource_count
-        
+
         fractions = (self.received * values / total_received) * self.resource_count
 
         return fractions
+
 
 class EqualDivisionAgent(BaseAgent):
     def __init__(
