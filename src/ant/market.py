@@ -91,7 +91,7 @@ class BaseAgent:
         """Get the resource value multiplier for this agent."""
         return self._resource_value
 
-    def utility(self) -> float:
+    def utility(self, received=None) -> float:
         """
         Calculate the utility derived from current resources.
 
@@ -105,6 +105,10 @@ class BaseAgent:
         neighbor_values = np.array(
             [other.resource_value() for other in self.neighbours()]
         )  # maybe this should be cached?
+
+        # compute the utility of an arbitrary allocation (for example the equilibrium allocation)
+        if received is not None:
+            return np.sum(received @ neighbor_values)
         current_utility = np.sum(self.received @ neighbor_values)
         time = self.utility_over_time[1]
         utility_over_time = (self.utility_over_time[0] * time + current_utility) / (
@@ -235,6 +239,8 @@ class Market:
         agents (np.ndarray): Array of agent instances in the market
         graph (nx.Graph): Network structure defining agent connections
         market_time (int): Current simulation timestep
+        equilibrium_utility (float): The equilibrium utility, computed with P4 (Hellinga, 2025)
+        equilibrium_allocation (np.ndarray): The equilibrium allocation
     """
 
     def __init__(
@@ -280,6 +286,9 @@ class Market:
         if seed is not None:
             self.seed = seed
 
+        self.equilibrium_utility = None
+        self.equilibrium_allocation = None
+
     def step(self) -> None:
         """
         Execute one timestep of the market simulation.
@@ -308,16 +317,30 @@ class Market:
             agent.receive(r_i)
         self.market_time = time + 1
 
-    # Broken
-    # TODO: adhere to Hellinga, 2025, 4.4
-    def market_loss(self, optimal) -> float:
-        optimal_utility = np.array([np.sum(optimal[:, agent.id]) for agent in self.agents])
-        market_utility = np.array([agent.utility() for agent in self.agents])
-        return np.sqrt(np.sum(market_utility - optimal_utility)) / np.linalg.norm(
-            optimal
-        )
+    def market_loss(self) -> float:
+        """
+        Calculate the loss of the currect market state.
 
-    def simulate(self, duration: int, optimal: np.ndarray) -> List[float]:
+        Returns:
+            The loss of the current market state, compared to the equilibrium
+        """
+        def eq_utility(agent: BaseAgent):
+            neighbor_indices = np.where(adj_mask[agent.id] > 0)[0]
+            received = self.equilibrium_allocation[neighbor_indices, agent.id]
+            return agent.utility(received)
+
+        adj_mask = nx.to_numpy_array(self.graph, nodelist=range(len(self)), dtype=int)
+
+        current_utility = np.array([agent.utility() for agent in self.agents])
+        eq_utility = np.array([eq_utility(agent) for agent in self.agents])
+
+        return np.sqrt(np.sum(np.square(current_utility - eq_utility))) / np.linalg.norm(eq_utility)
+
+    def set_market_equilibrium(self, eq_allocation, eq_utility):
+        self.equilibrium_utility = eq_utility
+        self.equilibrium_allocation = eq_allocation
+
+    def simulate(self, duration: int) -> List[float]:
         """
         Run the market simulation for a specified number of timesteps.
 
@@ -329,12 +352,15 @@ class Market:
         """
         if duration < 0:
             raise ValueError("Duration must be non-negative")
+        
+        if self.equilibrium_allocation is None or self.equilibrium_utility is None:
+            raise ValueError("An equilibrium allocation must be provided in order to compute market loss. Use Market.set_market_equilibrium")
 
         results = np.zeros(duration)
         self.market_time = 0
         for t in range(duration):
             self.step()
-            val = self.market_loss(optimal)
+            val = self.market_loss()
             results[t] = val
 
         return results
