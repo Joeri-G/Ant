@@ -19,6 +19,9 @@ class ProportionalAgent(BaseAgent):
         super().__init__(id, market=market, resource_value=resource_value, seed=seed)
 
     def allocate(self, time: int) -> np.ndarray:
+        """
+        Divides the surplus resources amongst the neighbours based on the resources received in the last round.
+        """
         num_neighbors = len(self.received)
         total_received = np.sum(self.received)
         if total_received == 0:  # default -> spread across neighbours
@@ -31,3 +34,21 @@ class ProportionalAgent(BaseAgent):
         )
 
         return fractions
+
+class EqualDivisionAgent(BaseAgent):
+    def __init__(
+        self,
+        id: int,
+        market: Optional[Market] = None,
+        resource_value: float = 1,
+        seed: Optional[int] = None,
+    ):
+        super().__init__(id, market=market, resource_value=resource_value, seed=seed)
+
+    def allocate(self, time: int) -> np.ndarray:
+        """
+        Divides the surplus resources equally amongst neighbours.
+        """
+        num_neighbors = len(self.received)
+        total_received = np.sum(self.received)
+        return np.ones(num_neighbors) / num_neighbors * self.resource_count
