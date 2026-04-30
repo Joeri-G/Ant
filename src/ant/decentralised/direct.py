@@ -23,15 +23,13 @@ class ProportionalAgent(BaseAgent):
         Divides the surplus resources amongst the neighbours based on the resources received in the last round.
         """
         num_neighbors = len(self.received)
-        total_received = np.sum(self.received)
+        values = np.array([other.resource_value() for other in self.neighbours()])
+        total_received = np.sum(self.received @ values)
+        
         if total_received == 0:  # default -> spread across neighbours
             return np.ones(num_neighbors) / num_neighbors * self.resource_count
-        fractions = np.array(
-            [
-                (v / total_received) * self.resource_count
-                for i, v in enumerate(self.received)
-            ]
-        )
+        
+        fractions = (self.received * values / total_received) * self.resource_count
 
         return fractions
 
