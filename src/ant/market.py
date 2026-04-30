@@ -178,11 +178,12 @@ class Market:
         for t in range(duration):
             self.step()
             val = self.market_loss()
+            # val = np.sum(np.array([agent.utility_over_time() for agent in self.agents]))
             results[t] = val
 
         return results
 
-    def neighbours(self, agent: Union[BaseAgent, int]) -> Iterator[BaseAgent]:
+    def neighbours(self, agent: Union[BaseAgent, int]) -> np.ndarray:
         """
         Run the market simulation for a specified number of timesteps.
 
@@ -199,7 +200,7 @@ class Market:
         else:
             raise TypeError("either provide an id or an agent")
         edges = nx.neighbors(self.graph, id)
-        return map(lambda id: self.agents[id], edges)
+        return np.array(list(map(lambda id: self.agents[id], edges)))
 
     def __repr__(self) -> str:
         """Return a string representation of the market."""
