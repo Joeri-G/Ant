@@ -13,10 +13,9 @@ class ProportionalAgent(BaseAgent):
         self,
         id: int,
         market: Optional[Market] = None,
-        resource_value: float = 1,
         seed: Optional[int] = None,
     ):
-        super().__init__(id, market=market, resource_value=resource_value, seed=seed)
+        super().__init__(id, market=market, seed=seed)
 
     def allocate(self, time: int) -> np.ndarray:
         """
@@ -38,10 +37,9 @@ class EqualDivisionAgent(BaseAgent):
         self,
         id: int,
         market: Optional[Market] = None,
-        resource_value: float = 1,
         seed: Optional[int] = None,
     ):
-        super().__init__(id, market=market, resource_value=resource_value, seed=seed)
+        super().__init__(id, market=market, seed=seed)
 
     def allocate(self, time: int) -> np.ndarray:
         """

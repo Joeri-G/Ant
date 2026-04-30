@@ -36,6 +36,7 @@ import random
 from typing import List, Optional, Iterator, Any, Union
 
 BASE_ENDOWMENT_RANGE = (1, 5)
+BASE_VALUE_RANGE = (1, 5)
 BASE_DISTRIBUTABLE_VARIANCE = 0.1
 
 class BaseAgent:
@@ -57,7 +58,6 @@ class BaseAgent:
         self,
         id: int,
         market: Optional[Market] = None,
-        resource_value: float = 1,
         seed: Optional[int] = None,
     ):
         """
@@ -66,7 +66,6 @@ class BaseAgent:
         Args:
             id: Unique identifier for this agent
             graph: Network graph defining agent connections (optional)
-            resource_value: Multiplier for resource valuation (default: 1)
 
         Raises:
             ValueError: If id is negative
@@ -80,12 +79,12 @@ class BaseAgent:
             len(list(nx.neighbors(market.graph, id))) if market is not None else 0,
             dtype=float,
         )
-        self.market = market
-        self._resource_value = resource_value
-        self._cached_endowment: Optional[int] = None
-
         self.random = random.Random()
         self.random.seed(seed)
+
+        self.market = market
+        self._resource_value = self.random.uniform(BASE_VALUE_RANGE[0], BASE_VALUE_RANGE[1])
+        self._cached_endowment: Optional[int] = None
 
         self.endowment = self.random.uniform(BASE_ENDOWMENT_RANGE[0], BASE_ENDOWMENT_RANGE[1])
 
