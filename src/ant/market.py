@@ -117,14 +117,12 @@ class Market:
 
         for agent in self.agents:
             agent.produce(time)
-            agent.consume(time)
             if len(agent.edges()) > 0:
                 allocation_matrix[agent.id] = agent.allocate(time)
 
         receive_matrix = allocation_matrix.T
 
         for agent in self.agents:
-            agent.send(allocation_matrix[agent.id], time)
             agent.receive(receive_matrix[agent.id], time)
 
         self.allocation_matrix = allocation_matrix

@@ -50,7 +50,6 @@ class BaseAgent:
         self.id = id
         self.market = market
         self.random = Random()
-        self.resource_count = 0
 
         if seed is not None:
             self.random.seed(seed)
@@ -71,6 +70,8 @@ class BaseAgent:
             (BASE_UTILITY_TIMELINE, len(self.market)) if market is not None else (0, 0),
             dtype=float,
         )
+
+        self.production_timeline = np.zeros(BASE_UTILITY_TIMELINE)
 
         self.reset()
 
@@ -98,6 +99,7 @@ class BaseAgent:
 
     def reset(self) -> None:
         self._utility_over_time = np.zeros(BASE_UTILITY_TIMELINE)
+        self.production_timeline = np.array([self.random.gauss(self.endowment, BASE_DISTRIBUTABLE_VARIANCE) for _ in range(BASE_UTILITY_TIMELINE)])
 
     def produce(self, time: int) -> int:
         """
@@ -113,26 +115,7 @@ class BaseAgent:
             This method should be overridden for more sophisticated production
             models that consider time or other factors.
         """
-        produced = self.random.gauss(self.endowment, BASE_DISTRIBUTABLE_VARIANCE)
-        self.resource_count += produced
-        return produced
-
-    def consume(self, time: int) -> int:
-        """
-        Consume resources from the agent's inventory.
-
-        Args:
-            time: Current simulation timestep (unused in base implementation)
-
-        Returns:
-            int: Number of resources consumed (base implementation returns 0)
-
-        Note:
-            This method should be overridden to implement consumption logic.
-        """
-        consumed = 0
-        self.resource_count -= consumed
-        return consumed
+        return self.production_timeline[time]
 
     def allocate(self, time: int) -> np.ndarray:
         """
@@ -154,13 +137,10 @@ class BaseAgent:
         favorite_neighbour = self.random.randint(0, num_neighbors - 1)
         second_favorite_neighbour = self.random.randint(0, num_neighbors - 1)
         ratio = self.random.random()
-        neighbour_vector[favorite_neighbour] = self.resource_count * ratio
-        neighbour_vector[second_favorite_neighbour] = self.resource_count * (1 - ratio)
+        neighbour_vector[favorite_neighbour] = self.production_timeline[time] * ratio
+        neighbour_vector[second_favorite_neighbour] = self.production_timeline[time] * (1 - ratio)
         allocation_vector[self.edges()] = neighbour_vector
         return allocation_vector
-
-    def send(self, allocation_vector: List[float], time=0) -> None:
-        self.resource_count -= np.sum(allocation_vector)
 
     def receive(self, incoming: List[float], time=0) -> None:
         """
