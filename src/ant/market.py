@@ -90,10 +90,9 @@ class Market:
         if agents is not None:
             self.agents: Iterator[BaseAgent] = np.array(agents, dtype=BaseAgent)
         else:
-            self.agents: Iterator[BaseAgent] = np.array(
-                [agent_type(id, market=self, seed=seed + id) for id in range(n)],
-                dtype=BaseAgent,
-            )
+            self.agents = np.empty(n, dtype=BaseAgent)
+            for i in range(n):
+                self.agents[i] = agent_type(i, market=self, seed=seed + i)
 
         if seed is not None:
             self.seed = seed
@@ -101,55 +100,58 @@ class Market:
         self.equilibrium_utility = None
         self.equilibrium_allocation = None
 
+        self.allocation_matrix = np.zeros((n, n), dtype=float)
+        self.receive_matrix = np.zeros((n, n), dtype=float)
+
+        self.resource_values = np.array([agent.resource_value for agent in self.agents])
+
     def step(self) -> None:
         """
         Execute one timestep of the market simulation.
         """
         time = self.market_time
-        # batch the allocation vectors for each agent
-        adj_mask = nx.to_numpy_array(self.graph, nodelist=range(len(self)), dtype=int)
-        X = np.zeros((len(self), len(self)), dtype=float)
+
+        allocation_matrix = np.zeros((len(self), len(self)), dtype=float)
 
         for agent in self.agents:
             agent.produce(time)
             agent.consume(time)
-            allocation = agent.allocate(time)
-            neighbor_indices = np.where(adj_mask[agent.id] > 0)[0]
-            if len(neighbor_indices) > 0:
-                X[agent.id, neighbor_indices] = allocation
+            if len(agent.edges()) > 0:
+                allocation_matrix[agent.id] = agent.allocate(time)
 
-        # apply the allocation vectors
+        receive_matrix = allocation_matrix.T
+
         for agent in self.agents:
-            neighbor_indices = np.where(adj_mask[agent.id] > 0)[0]
-            if len(neighbor_indices) == 0:
-                continue
-            r_i = X[neighbor_indices, agent.id]
-            x_i = X[agent.id, neighbor_indices]
-            agent.send(x_i)
-            agent.receive(r_i)
-        self.market_time = time + 1
+            agent.send(allocation_matrix[agent.id])
+            agent.receive(receive_matrix[agent.id])
 
-    def market_loss(self) -> float:
+        self.market_time = time + 1
+        self.allocation_matrix = allocation_matrix
+        self.receive_matrix = receive_matrix
+    
+    def market_utility(self) -> np.ndarray:
+        return np.array([agent.utility() for agent in self.agents])
+
+    def market_loss(self, time) -> float:
         """
         Calculate the loss of the currect market state.
 
         Returns:
             The loss of the current market state, compared to the equilibrium
         """
-
-        def eq_utility(agent: BaseAgent):
-            neighbor_indices = np.where(adj_mask[agent.id] > 0)[0]
-            received = self.equilibrium_allocation[neighbor_indices, agent.id]
+        
+        def equilibrium_utility(agent: BaseAgent):
+            received = self.equilibrium_allocation[agent.id]
             return agent.utility(received)
 
-        adj_mask = nx.to_numpy_array(self.graph, nodelist=range(len(self)), dtype=int)
+        average_utility_list = np.array([agent.utility_over_time(time) for agent in self.agents])
+        equilibrium_utility_list = np.array([equilibrium_utility(agent) for agent in self.agents])
 
-        average_utility = np.array([agent.utility_over_time() for agent in self.agents])
-        eq_utility = np.array([eq_utility(agent) for agent in self.agents])
+        utility_difference = average_utility_list - equilibrium_utility_list
+        utility_size = np.linalg.norm(equilibrium_utility_list)
+        # utility_size = np.sum(equilibrium_utility_list)
 
-        return np.sqrt(
-            np.sum(np.square(average_utility - eq_utility))
-        ) / np.linalg.norm(eq_utility)
+        return np.sqrt(np.sum(np.square(utility_difference))) / utility_size
 
     def set_market_equilibrium(self, eq_allocation, eq_utility):
         self.equilibrium_utility = eq_utility
@@ -177,9 +179,12 @@ class Market:
         self.market_time = 0
         for t in range(duration):
             self.step()
-            val = self.market_loss()
+            val = self.market_loss(t)
             # val = np.sum(np.array([agent.utility_over_time() for agent in self.agents]))
             results[t] = val
+
+        for agent in self.agents:
+            agent.reset()
 
         return results
 
@@ -193,14 +198,17 @@ class Market:
         Returns:
             Iterator[BaseAgent]: Iterator over neighbours
         """
+        edges = self.edges(agent)
+        return np.array(list(map(lambda id: self.agents[id], edges)))
+    
+    def edges(self, agent: Union[BaseAgent, int]) -> np.ndarray:
         if type(agent) == int:
             id = agent
         elif issubclass(agent_type, BaseAgent):
             id = agent.id
         else:
             raise TypeError("either provide an id or an agent")
-        edges = nx.neighbors(self.graph, id)
-        return np.array(list(map(lambda id: self.agents[id], edges)))
+        return np.fromiter(nx.neighbors(self.graph, id), int)
 
     def __repr__(self) -> str:
         """Return a string representation of the market."""

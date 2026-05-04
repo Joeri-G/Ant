@@ -14,16 +14,16 @@ class ProportionalAgent(BaseAgent):
         """
         Divides the surplus resources amongst the neighbours based on the resources received in the last round.
         """
-        num_neighbors = len(self.received)
-        values = np.array([other.resource_value() for other in self.neighbours()])
-        total_received = np.sum(self.received @ values)
+        num_neighbors = len(self.edges())
+        
+        total_received = np.sum(self.received @ self.market.resource_values)
 
         if total_received == 0:  # default -> spread across neighbours
-            return np.ones(num_neighbors) / num_neighbors * self.resource_count
-
-        fractions = (self.received * values / total_received) * self.resource_count
-
-        return fractions
+            fractions = np.ones(num_neighbors) * self.resource_count / num_neighbors
+            allocation_vector = np.zeros(len(self.market))
+            allocation_vector[self.edges()] = fractions
+            return allocation_vector
+        return (self.received * self.market.resource_values / total_received) * self.resource_count
 
 
 class EqualDivisionAgent(BaseAgent):
@@ -31,19 +31,27 @@ class EqualDivisionAgent(BaseAgent):
         """
         Divides the surplus resources equally amongst neighbours.
         """
-        num_neighbors = len(self.received)
+        num_neighbors = len(self.edges())
         total_received = np.sum(self.received)
-        return np.ones(num_neighbors) / num_neighbors * self.resource_count
+        allocation_vector = np.zeros(len(self.market))
+        allocation_vector[self.edges()] = 1
+        return allocation_vector / num_neighbors * self.resource_count
 
 class OptimalAgent(BaseAgent):
-    _optimal_allocation_vector = None
+    _optimal_allocation_ratio = None
 
-    def set_allocation_matrix(self, optimal_allocation_matrix: np.ndarray):
-        row = optimal_allocation_matrix[self.id]
-        neighbours = list(nx.neighbors(self.market.graph, self.id))
-        self._optimal_allocation_vector = row[neighbours]
+    def set_allocation_matrix(self, optimal_market_matrix: np.ndarray):
+        allocation_row = optimal_market_matrix.T[self.id]
+        self._optimal_allocation_ratio = allocation_row / np.sum(allocation_row)
+        # masked_allocation_row = np.zeros(len(allocation_row))
+        # masked_allocation_row[self.edges()] = allocation_row[self.edges()]
+        # self._optimal_allocation_ratio = masked_allocation_row / np.sum(masked_allocation_row)
 
     def allocate(self, time: int) -> np.ndarray:
-        if self._optimal_allocation_vector is None:
+        if self._optimal_allocation_ratio is None:
             raise ValueError("The optimal allocation matrix has to be set")
-        return self._optimal_allocation_vector
+        allocation_vector = self._optimal_allocation_ratio * self.resource_count
+        if np.any(np.isnan(allocation_vector)):
+            print("NaN encountered in Optimal Agent Allocation Vector")
+            return np.zeros(len(allocation_vector))
+        return allocation_vector

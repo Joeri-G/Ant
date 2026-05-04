@@ -47,28 +47,26 @@ class BaseAgent:
             raise ValueError("Agent ID must be non-negative")
 
         self.id = id
-        self.resource_count = 0
-        self.received: Iterator[float] = np.zeros(
-            len(list(nx.neighbors(market.graph, id))) if market is not None else 0,
-            dtype=float,
-        )
-        self.random = Random()
-        self.random.seed(seed)
-
         self.market = market
-        self._resource_value = self.random.uniform(
+        self.random = Random()
+        self.resource_count = 0
+
+        if seed is not None:
+            self.random.seed(seed)
+
+        self.resource_value = self.random.uniform(
             BASE_VALUE_RANGE[0], BASE_VALUE_RANGE[1]
         )
         self.endowment = self.random.uniform(
             BASE_ENDOWMENT_RANGE[0], BASE_ENDOWMENT_RANGE[1]
         )
 
-        self._utility_over_time = np.zeros(BASE_UTILITY_TIMELINE)
-        self._utility_counter = 0
+        self.received: Iterator[float] = np.zeros(
+            len(self.market) if market is not None else 0,
+            dtype=float,
+        )
 
-    def resource_value(self) -> float:
-        """Get the resource value multiplier for this agent."""
-        return self._resource_value
+        self.reset()
 
     def utility(self, received=None) -> float:
         """
@@ -81,21 +79,19 @@ class BaseAgent:
             This method should be overridden by subclasses to implement
             specific utility functions.
         """
-        neighbor_values = np.array(
-            [other.resource_value() for other in self.neighbours()]
-        )  # maybe this should be cached?
+        received_vector = self.received if received is None else received
+        return np.sum(received_vector @ self.market.resource_values)
 
-        received = self.received if received is None else received
-        return np.sum(received @ neighbor_values)
-
-    def utility_over_time(self) -> float:
+    def utility_over_time(self, time) -> float:
         """
         Keep track of the utility in previous states
         """
-        utility = self.utility()
-        self._utility_over_time[self._utility_counter] = utility
-        self._utility_counter += 1
-        return np.mean(self._utility_over_time[:self._utility_counter])
+        self._utility_over_time[time] = self.utility()
+        assert time >= 0 # np.mean([]) -> NaN
+        return np.mean(self._utility_over_time[:time+1])
+    
+    def reset(self) -> None:
+        self._utility_over_time = np.zeros(BASE_UTILITY_TIMELINE)
 
     def produce(self, time: int) -> int:
         """
@@ -114,15 +110,6 @@ class BaseAgent:
         produced = self.random.gauss(self.endowment, BASE_DISTRIBUTABLE_VARIANCE)
         self.resource_count += produced
         return produced
-
-    def long_term_resource_endowment(self) -> float:
-        """
-        Calculate the long-term average resource production rate.
-
-        Returns:
-            float: Average resources produced per timestep
-        """
-        return self.endowment
 
     def consume(self, time: int) -> int:
         """
@@ -155,14 +142,15 @@ class BaseAgent:
             Current implementation sends all resources to the first neighbor.
             Override for more sophisticated allocation strategies.
         """
-        num_neighbors = len(self.received)
-        allocation_vector = np.zeros(num_neighbors, dtype=float)
-
+        num_neighbors = len(self.edges())
+        neighbour_vector = np.zeros(num_neighbors, dtype=float)
+        allocation_vector = np.zeros(len(self.market), dtype=float)
         favorite_neighbour = self.random.randint(0, num_neighbors - 1)
         second_favorite_neighbour = self.random.randint(0, num_neighbors - 1)
         ratio = self.random.random()
-        allocation_vector[favorite_neighbour] = self.resource_count * ratio
-        allocation_vector[second_favorite_neighbour] = self.resource_count * (1 - ratio)
+        neighbour_vector[favorite_neighbour] = self.resource_count * ratio
+        neighbour_vector[second_favorite_neighbour] = self.resource_count * (1 - ratio)
+        allocation_vector[self.edges()] = neighbour_vector
         return allocation_vector
 
     def send(self, allocation_vector: List[float]) -> None:
@@ -181,14 +169,17 @@ class BaseAgent:
         """
         self.received = np.array(incoming, dtype=float)
 
-    def neighbours(self) -> Iterator[BaseAgent]:
+    def neighbours(self) -> List[BaseAgent]:
         """
         Get the neighboring agents in the network.
 
         Returns:
-            Iterator[BaseAgent]: Generator yielding neighbors
+            List[BaseAgent]: List with neighbors
 
         Raises:
             ValueError: If graph is not set
         """
         return self.market.neighbours(self.id)
+
+    def edges(self) -> List[int]:
+        return self.market.edges(self.id)
