@@ -17,16 +17,13 @@ def P4(market: Market) -> Tuple(np.ndarray, float):
     agents: List[BaseAgent] = market.agents
     n = len(agents)
 
-    # Pre-calculate constant vectors for efficiency
-    alphas = np.array(
-        [
-            agent.resource_value() * agent.long_term_resource_endowment()
-            for agent in agents
-        ]
-    )
-    resource_values = np.array([agent.resource_value() for agent in agents])
+    EPSILON = np.finfo(float).eps
 
-    # Build adjacency mask for the graph
+    endowments = np.array([agent.endowment for agent in agents])
+    resource_values = np.array([agent.resource_value for agent in agents])
+
+    alphas = resource_values * endowments
+
     adj_mask = nx.to_numpy_array(market.graph, nodelist=range(n), dtype=int)
 
     # allocation_matrix[i][j] represents allocation from agent i to agent j
@@ -36,15 +33,15 @@ def P4(market: Market) -> Tuple(np.ndarray, float):
 
     # Allocations to unconnected agents must be zero
     zero_entries = cp.multiply(1 - adj_mask, allocation_matrix)
-    constraints += [zero_entries == 0]
-    # Sum of allocations for each agent <= long_term_resource_endowment
-    endowments = np.array([agent.long_term_resource_endowment() for agent in agents])
+    constraints += [zero_entries <= EPSILON]
+    # Sum of allocations for each agent <= endowment
+    
     constraints += [cp.sum(allocation_matrix, axis=1) <= endowments]
     # All allocations must be non-negative
     constraints += [allocation_matrix >= 0]
 
-    # Weighted sum for each agent i
-    weighted_sums = allocation_matrix @ resource_values
+    # The weighted sum of received resources for agent i
+    weighted_sums = allocation_matrix.T @ resource_values
     log_terms = cp.log(weighted_sums)
     objective_expr = cp.sum(alphas @ log_terms)
 
