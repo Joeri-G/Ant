@@ -101,7 +101,7 @@ class Market:
         self.receive_matrix = np.zeros((n, n), dtype=float)
 
         self.resource_values = np.array([agent.resource_value for agent in self.agents])
-        
+
         self.sharing_ratios = np.zeros(n)
         self.sharing_ratios_time = -1
         self.production_vector = np.zeros(n)
@@ -139,11 +139,13 @@ class Market:
         )
         self.sharing_ratios_time = time
         return self.sharing_ratios
-    
+
     def production_vector_calculation(self, time):
         if time == self.production_time:
             return self.production_vector
-        self.production_vector = np.array([agent.production_timeline[time] for agent in self.agents])
+        self.production_vector = np.array(
+            [agent.production_timeline[time] for agent in self.agents]
+        )
         return self.production_vector
 
     def market_utility(self) -> np.ndarray:

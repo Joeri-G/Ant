@@ -99,7 +99,12 @@ class BaseAgent:
 
     def reset(self) -> None:
         self._utility_over_time = np.zeros(BASE_UTILITY_TIMELINE)
-        self.production_timeline = np.array([self.random.gauss(self.endowment, BASE_DISTRIBUTABLE_VARIANCE) for _ in range(BASE_UTILITY_TIMELINE)])
+        self.production_timeline = np.array(
+            [
+                self.random.gauss(self.endowment, BASE_DISTRIBUTABLE_VARIANCE)
+                for _ in range(BASE_UTILITY_TIMELINE)
+            ]
+        )
 
     def produce(self, time: int) -> int:
         """
@@ -138,7 +143,9 @@ class BaseAgent:
         second_favorite_neighbour = self.random.randint(0, num_neighbors - 1)
         ratio = self.random.random()
         neighbour_vector[favorite_neighbour] = self.production_timeline[time] * ratio
-        neighbour_vector[second_favorite_neighbour] = self.production_timeline[time] * (1 - ratio)
+        neighbour_vector[second_favorite_neighbour] = self.production_timeline[time] * (
+            1 - ratio
+        )
         allocation_vector[self.edges()] = neighbour_vector
         return allocation_vector
 

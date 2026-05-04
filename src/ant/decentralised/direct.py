@@ -19,7 +19,9 @@ class ProportionalAgent(BaseAgent):
         total_received = np.sum(self.received @ self.market.resource_values)
 
         if total_received == 0:  # default -> spread across neighbours
-            fractions = np.ones(num_neighbors) * self.production_timeline[time] / num_neighbors
+            fractions = (
+                np.ones(num_neighbors) * self.production_timeline[time] / num_neighbors
+            )
             allocation_vector = np.zeros(len(self.market))
             allocation_vector[self.edges()] = fractions
             return allocation_vector
@@ -53,7 +55,9 @@ class OptimalAgent(BaseAgent):
     def allocate(self, time: int) -> np.ndarray:
         if self._optimal_allocation_ratio is None:
             raise ValueError("The optimal allocation matrix has to be set")
-        allocation_vector = self._optimal_allocation_ratio * self.production_timeline[time]
+        allocation_vector = (
+            self._optimal_allocation_ratio * self.production_timeline[time]
+        )
         if np.any(np.isnan(allocation_vector)):
             print("NaN encountered in Optimal Agent Allocation Vector")
             return np.zeros(len(allocation_vector))
