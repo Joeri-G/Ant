@@ -12,7 +12,7 @@ from typing import List, Tuple
 def P4(market: Market) -> Tuple(np.ndarray, float):
     """
     Calculates the market equilibrium based on the method described by Hellinga in 2025.
-    Returns the optimal objective value.
+    Returns the optimal allocation matrix and utility vector
     """
     agents: List[BaseAgent] = market.agents
     n = len(agents)
@@ -48,4 +48,8 @@ def P4(market: Market) -> Tuple(np.ndarray, float):
     prob = cp.Problem(cp.Maximize(objective_expr), constraints)
 
     result = prob.solve()
-    return np.array(allocation_matrix.value), result
+
+    utility_vector = allocation_matrix.value.T @ resource_values
+
+    return np.array(allocation_matrix.value), utility_vector
+

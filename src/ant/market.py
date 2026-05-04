@@ -94,9 +94,6 @@ class Market:
         if seed is not None:
             self.seed = seed
 
-        self.equilibrium_utility = None
-        self.equilibrium_allocation = None
-
         self.allocation_matrix = np.zeros((n, n), dtype=float)
         self.receive_matrix = np.zeros((n, n), dtype=float)
 
@@ -108,6 +105,7 @@ class Market:
         self.production_time = -1
 
         self.equilibrium_utility = np.zeros(n)
+        self.equilibrium_allocation = np.zeros((0, 0))
         self.equilibrium_length = 1
 
     def step(self, time) -> None:
@@ -171,6 +169,7 @@ class Market:
     def set_market_equilibrium(self, eq_allocation, eq_utility):
         self.equilibrium_utility = eq_utility
         self.equilibrium_allocation = eq_allocation
+        self.equilibrium_length = np.linalg.norm(self.equilibrium_utility)
 
     def simulate(self, duration: int) -> List[float]:
         """
@@ -189,16 +188,6 @@ class Market:
             raise ValueError(
                 "An equilibrium allocation must be provided in order to compute market loss. Use Market.set_market_equilibrium"
             )
-
-        def equilibrium_utility(agent: BaseAgent):
-            # allocation matrix -> receive matrix
-            received = self.equilibrium_allocation.T[agent.id]
-            return agent.utility(received)
-
-        self.equilibrium_utility = np.array(
-            [equilibrium_utility(agent) for agent in self.agents]
-        )
-        self.equilibrium_length = np.linalg.norm(self.equilibrium_utility)
 
         results = np.zeros(duration)
         for time in range(duration):
