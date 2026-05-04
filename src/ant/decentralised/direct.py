@@ -44,7 +44,7 @@ class OptimalAgent(BaseAgent):
     _optimal_allocation_ratio = None
 
     def set_allocation_matrix(self, optimal_market_matrix: np.ndarray):
-        allocation_row = optimal_market_matrix.T[self.id]
+        allocation_row = optimal_market_matrix[self.id]
         self._optimal_allocation_ratio = allocation_row / np.sum(allocation_row)
         # masked_allocation_row = np.zeros(len(allocation_row))
         # masked_allocation_row[self.edges()] = allocation_row[self.edges()]

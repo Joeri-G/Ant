@@ -141,7 +141,8 @@ class Market:
         """
 
         def equilibrium_utility(agent: BaseAgent):
-            received = self.equilibrium_allocation[agent.id]
+            # allocation matrix -> receive matrix
+            received = self.equilibrium_allocation.T[agent.id]
             return agent.utility(received)
 
         average_utility_list = np.array(

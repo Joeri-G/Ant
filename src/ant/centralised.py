@@ -48,4 +48,4 @@ def P4(market: Market) -> Tuple(np.ndarray, float):
     prob = cp.Problem(cp.Maximize(objective_expr), constraints)
 
     result = prob.solve()
-    return np.array(allocation_matrix.value.T), result
+    return np.array(allocation_matrix.value), result
