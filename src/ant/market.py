@@ -128,7 +128,7 @@ class Market:
         self.market_time = time + 1
         self.allocation_matrix = allocation_matrix
         self.receive_matrix = receive_matrix
-    
+
     def market_utility(self) -> np.ndarray:
         return np.array([agent.utility() for agent in self.agents])
 
@@ -139,13 +139,17 @@ class Market:
         Returns:
             The loss of the current market state, compared to the equilibrium
         """
-        
+
         def equilibrium_utility(agent: BaseAgent):
             received = self.equilibrium_allocation[agent.id]
             return agent.utility(received)
 
-        average_utility_list = np.array([agent.utility_over_time(time) for agent in self.agents])
-        equilibrium_utility_list = np.array([equilibrium_utility(agent) for agent in self.agents])
+        average_utility_list = np.array(
+            [agent.utility_over_time(time) for agent in self.agents]
+        )
+        equilibrium_utility_list = np.array(
+            [equilibrium_utility(agent) for agent in self.agents]
+        )
 
         utility_difference = average_utility_list - equilibrium_utility_list
         utility_size = np.linalg.norm(equilibrium_utility_list)
@@ -200,7 +204,7 @@ class Market:
         """
         edges = self.edges(agent)
         return np.array(list(map(lambda id: self.agents[id], edges)))
-    
+
     def edges(self, agent: Union[BaseAgent, int]) -> np.ndarray:
         if type(agent) == int:
             id = agent

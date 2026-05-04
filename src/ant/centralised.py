@@ -35,7 +35,7 @@ def P4(market: Market) -> Tuple(np.ndarray, float):
     zero_entries = cp.multiply(1 - adj_mask, allocation_matrix)
     constraints += [zero_entries <= EPSILON]
     # Sum of allocations for each agent <= endowment
-    
+
     constraints += [cp.sum(allocation_matrix, axis=1) <= endowments]
     # All allocations must be non-negative
     constraints += [allocation_matrix >= 0]

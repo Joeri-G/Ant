@@ -12,6 +12,7 @@ BASE_VALUE_RANGE = (1, 5)
 BASE_DISTRIBUTABLE_VARIANCE = 0.1
 BASE_UTILITY_TIMELINE = 1000
 
+
 class BaseAgent:
     """
     Base class representing an agent in the market simulation.
@@ -87,9 +88,9 @@ class BaseAgent:
         Keep track of the utility in previous states
         """
         self._utility_over_time[time] = self.utility()
-        assert time >= 0 # np.mean([]) -> NaN
-        return np.mean(self._utility_over_time[:time+1])
-    
+        assert time >= 0  # np.mean([]) -> NaN
+        return np.mean(self._utility_over_time[: time + 1])
+
     def reset(self) -> None:
         self._utility_over_time = np.zeros(BASE_UTILITY_TIMELINE)
 

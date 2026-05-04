@@ -15,7 +15,7 @@ class ProportionalAgent(BaseAgent):
         Divides the surplus resources amongst the neighbours based on the resources received in the last round.
         """
         num_neighbors = len(self.edges())
-        
+
         total_received = np.sum(self.received @ self.market.resource_values)
 
         if total_received == 0:  # default -> spread across neighbours
@@ -23,7 +23,9 @@ class ProportionalAgent(BaseAgent):
             allocation_vector = np.zeros(len(self.market))
             allocation_vector[self.edges()] = fractions
             return allocation_vector
-        return (self.received * self.market.resource_values / total_received) * self.resource_count
+        return (
+            self.received * self.market.resource_values / total_received
+        ) * self.resource_count
 
 
 class EqualDivisionAgent(BaseAgent):
@@ -36,6 +38,7 @@ class EqualDivisionAgent(BaseAgent):
         allocation_vector = np.zeros(len(self.market))
         allocation_vector[self.edges()] = 1
         return allocation_vector / num_neighbors * self.resource_count
+
 
 class OptimalAgent(BaseAgent):
     _optimal_allocation_ratio = None
