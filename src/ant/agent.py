@@ -62,8 +62,13 @@ class BaseAgent:
             BASE_ENDOWMENT_RANGE[0], BASE_ENDOWMENT_RANGE[1]
         )
 
-        self.received: Iterator[float] = np.zeros(
+        self.received: List[float] = np.zeros(
             len(self.market) if market is not None else 0,
+            dtype=float,
+        )
+
+        self.received_history: List[float] = np.zeros(
+            (BASE_UTILITY_TIMELINE, len(self.market)) if market is not None else (0, 0),
             dtype=float,
         )
 
@@ -154,10 +159,10 @@ class BaseAgent:
         allocation_vector[self.edges()] = neighbour_vector
         return allocation_vector
 
-    def send(self, allocation_vector: List[float]) -> None:
+    def send(self, allocation_vector: List[float], time=0) -> None:
         self.resource_count -= np.sum(allocation_vector)
 
-    def receive(self, incoming: List[float]) -> None:
+    def receive(self, incoming: List[float], time=0) -> None:
         """
         Process incoming resource allocations from neighboring agents.
 
@@ -168,7 +173,20 @@ class BaseAgent:
             The order of incoming resources corresponds to the order of
             neighbors in the graph.
         """
-        self.received = np.array(incoming, dtype=float)
+        entry = np.array(incoming, dtype=float)
+        self.received = entry
+        self.received_history[time] = entry
+
+    def average_received_resources(self, time):
+        recv_slice = self.received_history[: time + 1]
+        return np.mean(recv_slice, axis=0)
+
+    def weighted_sharing_ratio(self, time: int) -> float:
+        avg_recv_vector = self.average_received_resources(time)
+        sharing_ratio = np.sum(avg_recv_vector @ self.market.resource_values) / (
+            self.resource_value * self.endowment
+        )
+        return sharing_ratio
 
     def neighbours(self) -> List[BaseAgent]:
         """

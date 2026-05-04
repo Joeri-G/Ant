@@ -58,3 +58,15 @@ class OptimalAgent(BaseAgent):
             print("NaN encountered in Optimal Agent Allocation Vector")
             return np.zeros(len(allocation_vector))
         return allocation_vector
+
+
+class GreedyAgent(BaseAgent):
+    def allocate(self, time: int) -> np.ndarray:
+        allocation_vector = np.zeros(len(self.market))
+
+        sharing_ratios = self.market.sharing_ratio_calculation(time)
+        edges = self.edges()
+        min_sharing_ratio_edge = np.argmin(sharing_ratios[edges])
+        neighbour = edges[min_sharing_ratio_edge]
+        allocation_vector[neighbour] = self.resource_count
+        return allocation_vector

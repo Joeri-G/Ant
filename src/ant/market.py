@@ -50,7 +50,6 @@ class Market:
     Attributes:
         agents (np.ndarray): Array of agent instances in the market
         graph (nx.Graph): Network structure defining agent connections
-        market_time (int): Current simulation timestep
         equilibrium_utility (float): The equilibrium utility, computed with P4 (Hellinga, 2025)
         equilibrium_allocation (np.ndarray): The equilibrium allocation
     """
@@ -80,8 +79,6 @@ class Market:
         if not issubclass(agent_type, BaseAgent):
             raise TypeError("agent_type must be a subclass of BaseAgent")
 
-        self.market_time = 0
-
         if graph is not None:
             self.graph = graph
         else:
@@ -104,14 +101,19 @@ class Market:
         self.receive_matrix = np.zeros((n, n), dtype=float)
 
         self.resource_values = np.array([agent.resource_value for agent in self.agents])
+        self.sharing_ratios = np.zeros(n)
+        self.sharing_ratios_time = -1
+        self.equilibrium_utility = np.zeros(n)
+        self.equilibrium_length = 1
 
-    def step(self) -> None:
+    def step(self, time) -> None:
         """
         Execute one timestep of the market simulation.
         """
-        time = self.market_time
 
         allocation_matrix = np.zeros((len(self), len(self)), dtype=float)
+
+        self.sharing_ratios = self.sharing_ratio_calculation(time)
 
         for agent in self.agents:
             agent.produce(time)
@@ -122,12 +124,20 @@ class Market:
         receive_matrix = allocation_matrix.T
 
         for agent in self.agents:
-            agent.send(allocation_matrix[agent.id])
-            agent.receive(receive_matrix[agent.id])
+            agent.send(allocation_matrix[agent.id], time)
+            agent.receive(receive_matrix[agent.id], time)
 
-        self.market_time = time + 1
         self.allocation_matrix = allocation_matrix
         self.receive_matrix = receive_matrix
+
+    def sharing_ratio_calculation(self, time):
+        if time == self.sharing_ratios_time:
+            return self.sharing_ratios
+        self.sharing_ratios = np.array(
+            [agent.weighted_sharing_ratio(time) for agent in self.agents]
+        )
+        self.sharing_ratios_time = time
+        return self.sharing_ratios
 
     def market_utility(self) -> np.ndarray:
         return np.array([agent.utility() for agent in self.agents])
@@ -140,23 +150,14 @@ class Market:
             The loss of the current market state, compared to the equilibrium
         """
 
-        def equilibrium_utility(agent: BaseAgent):
-            # allocation matrix -> receive matrix
-            received = self.equilibrium_allocation.T[agent.id]
-            return agent.utility(received)
-
         average_utility_list = np.array(
             [agent.utility_over_time(time) for agent in self.agents]
         )
-        equilibrium_utility_list = np.array(
-            [equilibrium_utility(agent) for agent in self.agents]
-        )
 
-        utility_difference = average_utility_list - equilibrium_utility_list
-        utility_size = np.linalg.norm(equilibrium_utility_list)
+        utility_difference = average_utility_list - self.equilibrium_utility
         # utility_size = np.sum(equilibrium_utility_list)
 
-        return np.sqrt(np.sum(np.square(utility_difference))) / utility_size
+        return np.sqrt(np.sum(np.square(utility_difference))) / self.equilibrium_length
 
     def set_market_equilibrium(self, eq_allocation, eq_utility):
         self.equilibrium_utility = eq_utility
@@ -180,13 +181,22 @@ class Market:
                 "An equilibrium allocation must be provided in order to compute market loss. Use Market.set_market_equilibrium"
             )
 
+        def equilibrium_utility(agent: BaseAgent):
+            # allocation matrix -> receive matrix
+            received = self.equilibrium_allocation.T[agent.id]
+            return agent.utility(received)
+
+        self.equilibrium_utility = np.array(
+            [equilibrium_utility(agent) for agent in self.agents]
+        )
+        self.equilibrium_length = np.linalg.norm(self.equilibrium_utility)
+
         results = np.zeros(duration)
-        self.market_time = 0
-        for t in range(duration):
-            self.step()
-            val = self.market_loss(t)
+        for time in range(duration):
+            self.step(time)
+            val = self.market_loss(time)
             # val = np.sum(np.array([agent.utility_over_time() for agent in self.agents]))
-            results[t] = val
+            results[time] = val
 
         for agent in self.agents:
             agent.reset()
