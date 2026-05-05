@@ -14,7 +14,7 @@ class OptimizerAgent(ProportionalAgent):
     ):
         super().__init__(id, market=market, seed=seed, **kwargs)
         self.k = k
-        self.sub_market = VariableSubMarket(self.market, self.id, k=k)
+        self.submarket = VariableSubMarket(self.market, self.id, k=k)
 
     def allocate(self, time: int) -> np.ndarray:
         """
@@ -24,13 +24,13 @@ class OptimizerAgent(ProportionalAgent):
 
         fractions = np.zeros(len(self.market))
 
-        n = len(self.sub_market)
+        n = len(self.submarket)
         calculated_allocation_matrix = cp.Variable((n, n))
         # everything that is not in the sub-market is set to zero
 
         # constants
-        endowments = self.sub_market.endowments
-        resource_values = self.sub_market.resource_values
+        endowments = self.submarket.endowments
+        resource_values = self.submarket.resource_values
 
         alphas = resource_values * endowments
 
@@ -38,7 +38,7 @@ class OptimizerAgent(ProportionalAgent):
 
         # Allocations to unconnected agents must be zero
         zero_entries = cp.multiply(
-            1 - self.sub_market.adjacency_mask, calculated_allocation_matrix
+            1 - self.submarket.adjacency_mask, calculated_allocation_matrix
         )
         constraints += [zero_entries <= SOLVER_EPSILON]
         # Sum of allocations for each agent <= endowment
@@ -53,12 +53,12 @@ class OptimizerAgent(ProportionalAgent):
         objective_expr = cp.sum(alphas @ log_terms)
 
         # All allocations in the neighbours mask should have the value of the most recent allocation matrix
-        fixed_values = self.sub_market.sub_market_allocation_matrix[
-            self.sub_market.adjacency_mask_without_center
+        fixed_values = self.submarket.submarket_allocation_matrix[
+            self.submarket.adjacency_mask_without_center
         ]
         if fixed_values.shape != (0,):
             masked_allocations = calculated_allocation_matrix[
-                self.sub_market.adjacency_mask_without_center
+                self.submarket.adjacency_mask_without_center
             ]
             constraints += [masked_allocations == fixed_values]
 
@@ -75,11 +75,11 @@ class OptimizerAgent(ProportionalAgent):
 
         result_matrix = np.array(calculated_allocation_matrix.value)
 
-        sub_market_optimal_allocation_vector = result_matrix[
-            self.sub_market.subgraph_center
+        submarket_optimal_allocation_vector = result_matrix[
+            self.submarket.subgraph_center
         ]
 
-        fractions[self.sub_market.ids] = sub_market_optimal_allocation_vector
+        fractions[self.submarket.ids] = submarket_optimal_allocation_vector
 
         fractions /= np.sum(fractions)  # normalize
 

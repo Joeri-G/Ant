@@ -34,7 +34,7 @@ class VariableSubMarket:
         return self.parent_market.allocation_matrix
 
     @property
-    def sub_market_allocation_matrix(self):
+    def submarket_allocation_matrix(self):
         return self.most_recent_allocation_matrix[:, self.submask][self.submask, :]
 
     @property
