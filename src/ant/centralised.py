@@ -33,7 +33,7 @@ def P4(market: Market) -> Tuple(np.ndarray, float):
 
     # Allocations to unconnected agents must be zero
     zero_entries = cp.multiply(1 - adj_mask, allocation_matrix)
-    constraints += [zero_entries <= EPSILON]
+    constraints += [zero_entries <= SOLVER_EPSILON]
     # Sum of allocations for each agent <= endowment
 
     constraints += [cp.sum(allocation_matrix, axis=1) <= endowments]
