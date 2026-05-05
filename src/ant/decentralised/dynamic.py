@@ -6,21 +6,26 @@ import networkx as nx
 import cvxpy as cp
 from ant.centralised import SOLVER_EPSILON
 from ant.decentralised.direct import ProportionalAgent
+from ant.agent import BaseAgent
 from ant.decentralised.submarket import VariableSubMarket
 
 class OptimizerAgent(ProportionalAgent):
     def __init__(
-        self, id: int, market: Optional[Market] = None, seed: Optional[int] = None, k=1, **kwargs
+        self, id: int, market: Optional[Market] = None, seed: Optional[int] = None, k=1, report_crashes:bool = False, **kwargs
     ):
         super().__init__(id, market=market, seed=seed, **kwargs)
         self.k = k
         self.submarket = VariableSubMarket(self.market, self.id, k=k)
+        self.has_crashed = False
+        self.report_crashes = report_crashes
 
     def allocate(self, time: int) -> np.ndarray:
         """
         At each time step this agent will try to optimize their allocation for
         the small portion of the graph they can see and they have an influence on.
         """
+        if self.has_crashed:
+            return super().allocate(time)
 
         fractions = np.zeros(len(self.market))
 
@@ -67,8 +72,10 @@ class OptimizerAgent(ProportionalAgent):
         try:
             result = prob.solve(verbose=False)
         except Exception as e:
-            print(f"Solver crashed. t={time}, k={self.k}")
+            if self.report_crashes:
+                print(f"Solver crashed. id={self.id} t={time}, k={self.k}")
             result = -1
+            self.has_crashed = True
 
         if result < 0:
             return super().allocate(time)

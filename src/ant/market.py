@@ -174,7 +174,7 @@ class Market:
         self.equilibrium_allocation = eq_allocation
         self.equilibrium_length = np.linalg.norm(self.equilibrium_utility)
 
-    def simulate(self, duration: int, use_average_in_market_loss=True) -> List[float]:
+    def simulate(self, duration: int, use_average_in_market_loss=True, return_utility_instead_of_market_loss=False) -> List[float]:
         """
         Run the market simulation for a specified number of timesteps.
 
@@ -195,8 +195,10 @@ class Market:
         results = np.zeros(duration)
         for time in range(duration):
             self.step(time)
-            val = self.market_loss(time, use_average_utility=use_average_in_market_loss)
-            # val = np.sum(np.array([agent.utility_over_time() for agent in self.agents]))
+            if return_utility_instead_of_market_loss:
+                val = np.sum(self.market_utility())
+            else:
+                val = self.market_loss(time, use_average_utility=use_average_in_market_loss)
             results[time] = val
 
         for agent in self.agents:
