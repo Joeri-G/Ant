@@ -22,9 +22,11 @@ class VariableSubMarket:
         self._endowments = np.zeros(len(self.parent_market))
         self._post_market_construction_init_flag = False
 
+        self.market_ratio = len(self.graph) / len(self.parent_graph)
+
         if len(self.graph) > 0.1 * len(self.parent_graph):
             print(
-                f"WARNING: Subgraph is over 10% of parent graph ({len(self.graph) / len(self.parent_graph) * 100}%)"
+                f"WARNING: Subgraph is over 10% of parent graph ({len(self.graph)}/{len(self.parent_graph)})"
             )
 
     @property
