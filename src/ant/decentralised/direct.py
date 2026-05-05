@@ -45,17 +45,13 @@ class OptimalAgent(BaseAgent):
     _optimal_allocation_ratio = None
 
     def set_allocation_matrix(self, optimal_market_matrix: np.ndarray):
-        allocation_row = optimal_market_matrix[self.id]
-        self._optimal_allocation_ratio = allocation_row / np.sum(allocation_row)
-        # masked_allocation_row = np.zeros(len(allocation_row))
-        # masked_allocation_row[self.edges()] = allocation_row[self.edges()]
-        # self._optimal_allocation_ratio = masked_allocation_row / np.sum(masked_allocation_row)
+        pass
 
     def allocate(self, time: int) -> np.ndarray:
-        if self._optimal_allocation_ratio is None:
-            raise ValueError("The optimal allocation matrix has to be set")
+        allocation_row = self.market.equilibrium_allocation[self.id]
+        optimal_allocation_vector = allocation_row / np.sum(allocation_row)
         allocation_vector = (
-            self._optimal_allocation_ratio * self.production_timeline[time]
+            optimal_allocation_vector * self.production_timeline[time]
         )
         if np.any(np.isnan(allocation_vector)):
             print("NaN encountered in Optimal Agent Allocation Vector")
