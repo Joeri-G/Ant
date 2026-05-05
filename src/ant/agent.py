@@ -77,7 +77,7 @@ class BaseAgent:
 
     def utility(self, received=None) -> float:
         """
-        Calculate the utility derived from current resources.
+        Calculate the utility derived from mopst recent received vector.
 
         Returns:
             float: Utility value (base implementation returns 0)

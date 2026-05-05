@@ -149,20 +149,23 @@ class Market:
     def market_utility(self) -> np.ndarray:
         return np.array([agent.utility() for agent in self.agents])
 
-    def market_loss(self, time) -> float:
+    def market_loss(self, time, use_average_utility=True) -> float:
         """
         Calculate the loss of the currect market state.
 
         Returns:
             The loss of the current market state, compared to the equilibrium
         """
+        if use_average_utility:
+            agent_utility_list = np.array(
+                [agent.utility_over_time(time) for agent in self.agents]
+            )
+        else:
+            agent_utility_list = np.array(
+                [agent.utility() for agent in self.agents]
+            )
 
-        average_utility_list = np.array(
-            [agent.utility_over_time(time) for agent in self.agents]
-        )
-
-        utility_difference = average_utility_list - self.equilibrium_utility
-        # utility_size = np.sum(equilibrium_utility_list)
+        utility_difference = agent_utility_list - self.equilibrium_utility
 
         return np.sqrt(np.sum(np.square(utility_difference))) / self.equilibrium_length
 
@@ -171,7 +174,7 @@ class Market:
         self.equilibrium_allocation = eq_allocation
         self.equilibrium_length = np.linalg.norm(self.equilibrium_utility)
 
-    def simulate(self, duration: int) -> List[float]:
+    def simulate(self, duration: int, use_average_in_market_loss=True) -> List[float]:
         """
         Run the market simulation for a specified number of timesteps.
 
@@ -192,7 +195,7 @@ class Market:
         results = np.zeros(duration)
         for time in range(duration):
             self.step(time)
-            val = self.market_loss(time)
+            val = self.market_loss(time, use_average_utility=use_average_in_market_loss)
             # val = np.sum(np.array([agent.utility_over_time() for agent in self.agents]))
             results[time] = val
 
