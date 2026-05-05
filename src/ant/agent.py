@@ -33,6 +33,7 @@ class BaseAgent:
         id: int,
         market: Optional[Market] = None,
         seed: Optional[int] = None,
+        **kwargs,
     ):
         """
         Initialize a new agent.

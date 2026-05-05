@@ -61,6 +61,7 @@ class Market:
         agents: Optional[List[BaseAgent]] = None,
         agent_type: type = BaseAgent,
         seed: Optional[int] = None,
+        **kwargs,
     ):
         """
         Initialize a new market simulation.
@@ -89,7 +90,7 @@ class Market:
         else:
             self.agents = np.empty(n, dtype=BaseAgent)
             for i in range(0, n):
-                self.agents[i] = agent_type(i, market=self, seed=seed + i)
+                self.agents[i] = agent_type(i, market=self, seed=seed + i, **kwargs)
 
         if seed is not None:
             self.seed = seed
