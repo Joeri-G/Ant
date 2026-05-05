@@ -193,7 +193,7 @@ class BaseAgent:
     def __eq__(self, other):
         assert isinstance(other, BaseAgent)
         return self.id == other.id
-    
+
     def __lt__(self, other):
         assert isinstance(other, BaseAgent)
         return self.id < other.id

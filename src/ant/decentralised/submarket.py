@@ -3,6 +3,7 @@ import numpy as np
 
 from ant.market import Market
 
+
 class VariableSubMarket:
     def __init__(self, market: Market, center, k=1):
         self.parent_market = market
@@ -22,29 +23,30 @@ class VariableSubMarket:
         self._post_market_construction_init_flag = False
 
         if len(self.graph) > 0.1 * len(self.parent_graph):
-            print(f"WARNING: Subgraph is over 10% of parent graph ({len(self.graph) / len(self.parent_graph) * 100}%)")
+            print(
+                f"WARNING: Subgraph is over 10% of parent graph ({len(self.graph) / len(self.parent_graph) * 100}%)"
+            )
 
     @property
     def most_recent_allocation_matrix(self):
         return self.parent_market.allocation_matrix
-    
 
     @property
     def sub_market_allocation_matrix(self):
         return self.most_recent_allocation_matrix[:, self.submask][self.submask, :]
-    
+
     @property
     def resource_values(self):
         if not self._post_market_construction_init_flag:
             self._post_market_construction_init()
         return self._resource_values
-    
+
     @property
     def endowments(self):
         if not self._post_market_construction_init_flag:
             self._post_market_construction_init()
         return self._endowments
-    
+
     def _post_market_construction_init(self):
         self._post_market_construction_init_flag = True
         self._resource_values = self.parent_market.resource_values[self.submask]
@@ -59,7 +61,9 @@ class VariableSubMarket:
             for idx in queue:
                 edges = np.array(list(nx.neighbors(self.parent_graph, idx)), dtype=int)
                 iteration_mask[edges] = 1
-            new_column_indices = np.where(iteration_mask * (1 - neighbourhood_mask) != 0)[0]
+            new_column_indices = np.where(
+                iteration_mask * (1 - neighbourhood_mask) != 0
+            )[0]
 
             if new_column_indices.any():
                 queue = new_column_indices
@@ -67,7 +71,6 @@ class VariableSubMarket:
 
             k -= 1
         return np.array(neighbourhood_mask, dtype=bool)
-    
 
     def __len__(self):
         return len(self.graph)

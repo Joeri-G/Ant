@@ -60,16 +60,11 @@ class MaxFinder(BaseAgent):
 
 
 class OptimizerAgent(ProportionalAgent):
-
     def __init__(
-        self,
-        id: int,
-        market: Optional[Market] = None,
-        seed: Optional[int] = None,
-        k=1
+        self, id: int, market: Optional[Market] = None, seed: Optional[int] = None, k=1
     ):
         super().__init__(id, market=market, seed=seed)
-        self.k=k
+        self.k = k
         self.sub_market = VariableSubMarket(self.market, self.id, k=k)
 
     def allocate(self, time: int) -> np.ndarray:
@@ -91,9 +86,11 @@ class OptimizerAgent(ProportionalAgent):
         alphas = resource_values * endowments
 
         constraints = []
-        
+
         # Allocations to unconnected agents must be zero
-        zero_entries = cp.multiply(1 - self.sub_market.adjacency_mask, calculated_allocation_matrix)
+        zero_entries = cp.multiply(
+            1 - self.sub_market.adjacency_mask, calculated_allocation_matrix
+        )
         constraints += [zero_entries <= SOLVER_EPSILON]
         # Sum of allocations for each agent <= endowment
 
@@ -107,9 +104,13 @@ class OptimizerAgent(ProportionalAgent):
         objective_expr = cp.sum(alphas @ log_terms)
 
         # All allocations in the neighbours mask should have the value of the most recent allocation matrix
-        fixed_values = self.sub_market.sub_market_allocation_matrix[self.sub_market.adjacency_mask_without_center]
-        if fixed_values.shape != (0, ):
-            masked_allocations = calculated_allocation_matrix[self.sub_market.adjacency_mask_without_center]
+        fixed_values = self.sub_market.sub_market_allocation_matrix[
+            self.sub_market.adjacency_mask_without_center
+        ]
+        if fixed_values.shape != (0,):
+            masked_allocations = calculated_allocation_matrix[
+                self.sub_market.adjacency_mask_without_center
+            ]
             constraints += [masked_allocations == fixed_values]
 
         prob = cp.Problem(cp.Maximize(objective_expr), constraints)
@@ -122,14 +123,15 @@ class OptimizerAgent(ProportionalAgent):
 
         if result < 0:
             return super().allocate(time)
-            
 
         result_matrix = np.array(calculated_allocation_matrix.value)
 
-        sub_market_optimal_allocation_vector = result_matrix[self.sub_market.subgraph_center]
-        
+        sub_market_optimal_allocation_vector = result_matrix[
+            self.sub_market.subgraph_center
+        ]
+
         fractions[self.sub_market.ids] = sub_market_optimal_allocation_vector
 
-        fractions /= np.sum(fractions) # normalize
+        fractions /= np.sum(fractions)  # normalize
 
         return fractions * self.production_timeline[time]
