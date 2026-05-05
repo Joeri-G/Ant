@@ -8,6 +8,8 @@ import numpy as np
 import networkx as nx
 from typing import List, Tuple
 
+SOLVER_EPSILON = np.finfo(float).eps
+
 
 def P4(market: Market) -> Tuple(np.ndarray, float):
     """
@@ -16,8 +18,6 @@ def P4(market: Market) -> Tuple(np.ndarray, float):
     """
     agents: List[BaseAgent] = market.agents
     n = len(agents)
-
-    EPSILON = np.finfo(float).eps
 
     endowments = np.array([agent.endowment for agent in agents])
     resource_values = np.array([agent.resource_value for agent in agents])
@@ -52,4 +52,3 @@ def P4(market: Market) -> Tuple(np.ndarray, float):
     utility_vector = allocation_matrix.value.T @ resource_values
 
     return np.array(allocation_matrix.value), utility_vector
-
