@@ -1,6 +1,5 @@
 import numpy as np
 import networkx as nx
-from ant.decentralised.utility import k_highest_indices
 from ant.agent import BaseAgent
 from typing import List
 
