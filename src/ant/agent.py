@@ -189,3 +189,11 @@ class BaseAgent:
 
     def edges(self) -> List[int]:
         return self.market.edges(self.id)
+
+    def __eq__(self, other):
+        assert isinstance(other, BaseAgent)
+        return self.id == other.id
+    
+    def __lt__(self, other):
+        assert isinstance(other, BaseAgent)
+        return self.id < other.id
