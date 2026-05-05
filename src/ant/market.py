@@ -88,7 +88,7 @@ class Market:
             self.agents: Iterator[BaseAgent] = np.array(agents, dtype=BaseAgent)
         else:
             self.agents = np.empty(n, dtype=BaseAgent)
-            for i in range(n):
+            for i in range(0, n):
                 self.agents[i] = agent_type(i, market=self, seed=seed + i)
 
         if seed is not None:
@@ -98,6 +98,7 @@ class Market:
         self.receive_matrix = np.zeros((n, n), dtype=float)
 
         self.resource_values = np.array([agent.resource_value for agent in self.agents])
+        self.endowments = np.array([agent.endowment for agent in self.agents])
 
         self.sharing_ratios = np.zeros(n)
         self.sharing_ratios_time = -1
@@ -161,9 +162,7 @@ class Market:
                 [agent.utility_over_time(time) for agent in self.agents]
             )
         else:
-            agent_utility_list = np.array(
-                [agent.utility() for agent in self.agents]
-            )
+            agent_utility_list = np.array([agent.utility() for agent in self.agents])
 
         utility_difference = agent_utility_list - self.equilibrium_utility
 
@@ -219,12 +218,12 @@ class Market:
 
     def edges(self, agent: Union[BaseAgent, int]) -> np.ndarray:
         if type(agent) == int:
-            id = agent
+            idx = agent
         elif issubclass(agent_type, BaseAgent):
-            id = agent.id
+            idx = agent.id
         else:
             raise TypeError("either provide an id or an agent")
-        return np.fromiter(nx.neighbors(self.graph, id), int)
+        return np.fromiter(nx.neighbors(self.graph, idx), int)
 
     def __repr__(self) -> str:
         """Return a string representation of the market."""
