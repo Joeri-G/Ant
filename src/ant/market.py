@@ -30,12 +30,10 @@ Nomenclature:
     S^M: Incentive Ratio of market M
 """
 
-from typing import TYPE_CHECKING
 import numpy as np
 import networkx as nx
-from typing import List, Optional, Iterator, Any, Union
+from typing import List, Optional, Iterator, Any, Union, TYPE_CHECKING
 
-# if TYPE_CHECKING:
 from .agent import BaseAgent
 
 
@@ -174,7 +172,12 @@ class Market:
         self.equilibrium_allocation = eq_allocation
         self.equilibrium_length = np.linalg.norm(self.equilibrium_utility)
 
-    def simulate(self, duration: int, use_average_in_market_loss=True, return_utility_instead_of_market_loss=False) -> List[float]:
+    def simulate(
+        self,
+        duration: int,
+        use_average_in_market_loss=True,
+        return_utility_instead_of_market_loss=False,
+    ) -> List[float]:
         """
         Run the market simulation for a specified number of timesteps.
 
@@ -198,7 +201,9 @@ class Market:
             if return_utility_instead_of_market_loss:
                 val = np.sum(self.market_utility())
             else:
-                val = self.market_loss(time, use_average_utility=use_average_in_market_loss)
+                val = self.market_loss(
+                    time, use_average_utility=use_average_in_market_loss
+                )
             results[time] = val
 
         for agent in self.agents:

@@ -50,9 +50,7 @@ class OptimalAgent(BaseAgent):
     def allocate(self, time: int) -> np.ndarray:
         allocation_row = self.market.equilibrium_allocation[self.id]
         optimal_allocation_vector = allocation_row / np.sum(allocation_row)
-        allocation_vector = (
-            optimal_allocation_vector * self.production_timeline[time]
-        )
+        allocation_vector = optimal_allocation_vector * self.production_timeline[time]
         if np.any(np.isnan(allocation_vector)):
             print("NaN encountered in Optimal Agent Allocation Vector")
             return np.zeros(len(allocation_vector))

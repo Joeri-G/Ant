@@ -1,6 +1,7 @@
 """
 This module contains decentralised strategies that use information about all agents within k hops.
 """
+
 import numpy as np
 import networkx as nx
 import cvxpy as cp
@@ -8,14 +9,22 @@ from ant.centralised import SOLVER_EPSILON
 from ant.decentralised.direct import ProportionalAgent
 from ant.agent import BaseAgent
 from ant.decentralised.submarket import VariableSubMarket
+from ant.centralised import P4
+
 
 class OptimizerAgent(ProportionalAgent):
     def __init__(
-        self, id: int, market: Optional[Market] = None, seed: Optional[int] = None, k=1, report_crashes:bool = False, **kwargs
+        self,
+        id: int,
+        market: Optional[Market] = None,
+        seed: Optional[int] = None,
+        k=1,
+        report_crashes: bool = False,
+        **kwargs,
     ):
         super().__init__(id, market=market, seed=seed, **kwargs)
         self.k = k
-        self.submarket = VariableSubMarket(self.market, self.id, k=k)
+        self.submarket = VariableSubMarket(self.market, self.id, **kwargs)
         self.has_crashed = False
         self.report_crashes = report_crashes
 
@@ -91,31 +100,3 @@ class OptimizerAgent(ProportionalAgent):
         fractions /= np.sum(fractions)  # normalize
 
         return fractions * self.production_timeline[time]
-
-
-class OptimizerAgentK2(OptimizerAgent):
-    def __init__(
-        self, id: int, market: Optional[Market] = None, seed: Optional[int] = None, k=2
-    ):
-        super().__init__(id, market, seed, k)
-
-
-class OptimizerAgentK3(OptimizerAgent):
-    def __init__(
-        self, id: int, market: Optional[Market] = None, seed: Optional[int] = None, k=3
-    ):
-        super().__init__(id, market, seed, k)
-
-
-class OptimizerAgentK4(OptimizerAgent):
-    def __init__(
-        self, id: int, market: Optional[Market] = None, seed: Optional[int] = None, k=4
-    ):
-        super().__init__(id, market, seed, k)
-
-
-class OptimizerAgentKm(OptimizerAgent):
-    def __init__(
-        self, id: int, market: Optional[Market] = None, seed: Optional[int] = None, k=6
-    ):
-        super().__init__(id, market, seed, k)
