@@ -6,7 +6,7 @@ from ant.market import Market
 
 class VariableSubMarket:
     def __init__(
-        self, market: Market, center, k: int = 1, warn_subgraph_ratio: bool = False
+        self, market: Market, center, k: int = 1, warn_subgraph_ratio: bool = False, **kwargs
     ):
         self.parent_market = market
         self.parent_graph = self.parent_market.graph
