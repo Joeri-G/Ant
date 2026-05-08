@@ -5,7 +5,9 @@ from ant.market import Market
 
 
 class VariableSubMarket:
-    def __init__(self, market: Market, center, k=1):
+    def __init__(
+        self, market: Market, center, k: int = 1, warn_subgraph_ratio: bool = False
+    ):
         self.parent_market = market
         self.parent_graph = self.parent_market.graph
         self.submask = self.neighbourhood_mask(center, k)
@@ -24,7 +26,7 @@ class VariableSubMarket:
 
         self.market_ratio = len(self.graph) / len(self.parent_graph)
 
-        if len(self.graph) > 0.1 * len(self.parent_graph):
+        if warn_subgraph_ratio and len(self.graph) > 0.1 * len(self.parent_graph):
             print(
                 f"WARNING: Subgraph is over 10% of parent graph ({len(self.graph)}/{len(self.parent_graph)})"
             )
