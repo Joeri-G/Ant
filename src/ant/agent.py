@@ -33,6 +33,7 @@ class BaseAgent:
         id: int,
         market: Optional[Market] = None,
         seed: Optional[int] = None,
+        resource_volatility: Optional[int] = 0.1,
         **kwargs,
     ):
         """
@@ -72,6 +73,12 @@ class BaseAgent:
             dtype=float,
         )
 
+        self.resource_volatility = (
+            resource_volatility
+            if resource_volatility is not None
+            else BASE_DISTRIBUTABLE_VARIANCE
+        )
+
         self.production_timeline = np.zeros(BASE_UTILITY_TIMELINE)
 
         self.reset()
@@ -102,7 +109,7 @@ class BaseAgent:
         self._utility_over_time = np.zeros(BASE_UTILITY_TIMELINE)
         self.production_timeline = np.array(
             [
-                self.random.gauss(self.endowment, BASE_DISTRIBUTABLE_VARIANCE)
+                self.random.gauss(self.endowment, self.resource_volatility)
                 for _ in range(BASE_UTILITY_TIMELINE)
             ]
         )
