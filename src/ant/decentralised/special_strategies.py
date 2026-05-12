@@ -64,3 +64,38 @@ class PettyAgent(BaseAgent):
         allocation_vector[edges] = actual_amounts
         
         return allocation_vector
+    
+
+class ImitationAgent(BaseAgent):
+    def __init__(self, id: int, market: Optional[Market] = None, seed: Optional[int] = None, **kwargs):
+        super().__init__(id, market=market, seed=seed, **kwargs)
+        self.copied_class = BaseAgent
+
+    def allocate(self, time: int) -> np.ndarray:
+        if time > 0:
+            sharing_ratios = self.market.sharing_ratio_calculation(time)
+            
+            edges = self.edges()
+            neighbours_and_self = np.append(edges, self.id)
+            
+            best_ratio_idx = np.argmax(sharing_ratios[neighbours_and_self])
+            best_agent_id = neighbours_and_self[best_ratio_idx]
+            
+            # Keep own strategy if we are among the highest earning strategies
+            best_ratio = sharing_ratios[best_agent_id]
+            if sharing_ratios[self.id] >= best_ratio:
+                # We are mathematically in the max set
+                pass
+            elif best_agent_id != self.id:
+                best_agent = self.market.agents[best_agent_id]
+                if isinstance(best_agent, ImitationAgent):
+                    self.copied_class = best_agent.copied_class
+                else:
+                    self.copied_class = best_agent.__class__
+                
+                if hasattr(best_agent, 'delta'):
+                    self.delta = best_agent.delta
+                    
+        return self.copied_class.allocate(self, time)
+
+
