@@ -99,3 +99,21 @@ class ImitationAgent(BaseAgent):
         return self.copied_class.allocate(self, time)
 
 
+
+class SatisficingAgent(BaseAgent):
+    def __init__(self, id: int, market: Optional[Market] = None, seed: Optional[int] = None, aspiration_level: float = 1.0, available_strategies: Optional[list] = None, **kwargs):
+        super().__init__(id, market=market, seed=seed, **kwargs)
+        self.aspiration_level = aspiration_level
+        self.available_strategies = available_strategies or [BaseAgent]
+        self.current_strategy_class = self.random.choice(self.available_strategies)
+
+    def allocate(self, time: int) -> np.ndarray:
+        if time > 0:
+            sharing_ratios = self.market.sharing_ratio_calculation(time)
+            my_ratio = sharing_ratios[self.id]
+            
+            if my_ratio < self.aspiration_level:
+                # search for a new strategy
+                self.current_strategy_class = self.random.choice(self.available_strategies)
+                    
+        return self.current_strategy_class.allocate(self, time)

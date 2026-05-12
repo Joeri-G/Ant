@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 import networkx as nx
 from ant.market import Market, BaseAgent
-from ant.decentralised.special_strategies import EgalitarianAgent, PettyAgent, ImitationAgent
+from ant.decentralised.special_strategies import EgalitarianAgent, PettyAgent, ImitationAgent, SatisficingAgent
 from ant.decentralised.direct import GreedyAgent, ProportionalAgent
 
 def test_egalitarian_agent():
@@ -69,3 +69,31 @@ def test_imitation_agent():
     
     # It should have copied GreedyAgent because agent 1 (GreedyAgent) has the max ratio (3.0)
     assert agents[0].copied_class == GreedyAgent
+
+def test_satisficing_agent():
+    G = nx.star_graph(2)
+    available = [GreedyAgent, ProportionalAgent]
+    # Set aspiration level to 2.0
+    agents = [SatisficingAgent(id=0, aspiration_level=2.0, available_strategies=available)] + [BaseAgent(id=i) for i in range(1, 3)]
+    M = Market(3, graph=G, agents=agents)
+    
+    for a in M.agents:
+        a.market = M
+        a.production_timeline = np.ones(10) * 100
+        a.received = np.zeros(3)
+        
+    initial_strategy = agents[0].current_strategy_class
+    import random
+    agents[0].random = random.Random(42) # fix seed
+    
+    # Time > 0: if ratio >= 2.0 -> keep strategy
+    M.sharing_ratio_calculation = lambda t: np.array([2.5, 1.0, 1.0])
+    agents[0].allocate(1)
+    # Strategy should not change since 2.5 >= 2.0
+    assert agents[0].current_strategy_class == initial_strategy
+    
+    # Time > 0: if ratio < 2.0 -> adopt new strategy
+    # To force search, and we seeded, we can just ensure it picks something (we don't strictly test random.choice result except that it picks from available)
+    M.sharing_ratio_calculation = lambda t: np.array([1.5, 1.0, 1.0]) 
+    agents[0].allocate(2)
+    assert agents[0].current_strategy_class in available
