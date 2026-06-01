@@ -1,4 +1,4 @@
-# Ant - A Money-Free Sharing Economy Analysis toolkit
+# Ant - A Non-monetary sharing economy analysis toolkiT
 ---
 
 ## Usage
