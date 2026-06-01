@@ -9,6 +9,7 @@ from ant.centralised import SOLVER_EPSILON
 from ant.decentralised.direct import ProportionalAgent
 from ant.agent import BaseAgent
 from ant.decentralised.submarket import VariableSubMarket
+from ant.decentralised.dummysubmarket import DummySubmarket
 from ant.centralised import P4
 
 
@@ -83,6 +84,7 @@ class OptimizerAgent(ProportionalAgent):
         except Exception as e:
             if self.report_crashes:
                 print(f"Solver crashed. id={self.id} t={time}, k={self.k}")
+                result = prob.solve(verbose=True)
             result = -1
             self.has_crashed = True
 
@@ -100,3 +102,32 @@ class OptimizerAgent(ProportionalAgent):
         fractions /= np.sum(fractions)  # normalize
 
         return fractions * self.production_timeline[time]
+
+class DistributedOptimizerAgent(ProportionalAgent):
+    def __init__(
+        self,
+        id: int,
+        market: Optional[Market] = None,
+        seed: Optional[int] = None,
+        k=1,
+        report_crashes: bool = False,
+        **kwargs,
+    ):
+        super().__init__(id, market=market, seed=seed, **kwargs)
+        self.k = k
+        self.submarket = DummySubmarket(self.market, self.id, **kwargs)
+        self.has_crashed = False
+        self.report_crashes = report_crashes
+    
+    def allocate(self, time: int) -> np.ndarray:
+        """
+        At each time step this agent will try to optimize their allocation for
+        the small portion of the graph they can see and they have an influence on.
+        """
+        if self.has_crashed:
+            return super().allocate(time)
+
+        if time == 1:
+            self.submarket.submarket_allocation_matrix
+        
+        # Construct a similar problem to OptimizerAgent, but this time with a dummy node ring that models the outside world
