@@ -44,59 +44,55 @@ def create_grid_graph(n):
     return G
 
 
-def COAP(
-    market: Market, 
-    community_set: Set(int),
-    community_center: int,
-    current_allocation: np.ndarray
-) -> Tuple[np.ndarray, float]:
-    """
-    Who needs docs anyways?
-    """
-    agents: List[BaseAgent] = market.agents
-    n = len(agents)
+    def COAP(
+        market: Market, 
+        community_set: Set(int),
+        community_center: int,
+        current_allocation: np.ndarray,
+        time: int
+    ) -> np.ndarray:
+        """
+        Who needs docs anyways?
+        """
+        agents: List[BaseAgent] = market.agents
+        n = len(agents)
 
-    endowments = np.array([agent.endowment for agent in agents])
-    resource_values = np.array([agent.resource_value for agent in agents])
+        # D_j(t+1) = D_j(t)
+        # For agent i: D_i(t+1) is their actually distributable resources
+        # distributable_resources = np.array([agent.production_timeline[time-1] for agent in agents])
+        # distributable_resources[community_center] = agents[community_center].production_timeline[t]
+        distributable_resources = np.array([agent.endowment for agent in agents])
+        resource_values = np.array([agent.resource_value for agent in agents])
 
-    alphas = resource_values * endowments
+        alphas = resource_values * distributable_resources
 
-    adj_mask = nx.to_numpy_array(market.graph, nodelist=range(n), dtype=int)
+        adj_mask = nx.to_numpy_array(market.graph, nodelist=range(n), dtype=int)
 
-    # allocation_matrix[i][j] represents allocation from agent i to agent j
-    x_i = cp.Variable(n)
-    allocation_matrix = cp.vstack([
-       x_i if i == community_center else row for i, row in enumerate(current_allocation)
-    ])
+        # allocation_matrix[i][j] represents allocation from agent i to agent j
+        allocation_matrix = cp.vstack([
+        cp.Variable(n) if i == community_center else row for i, row in enumerate(current_allocation)
+        ])
 
-    constraints = []
+        constraints = []
 
-    # Allocations to unconnected agents must be zero
-    zero_entries = cp.multiply(1 - adj_mask, allocation_matrix)
-    constraints += [zero_entries <= SOLVER_EPSILON]
-    # Sum of allocations for each agent <= endowment
+        # Allocations to unconnected agents must be zero
+        zero_entries = cp.multiply(1 - adj_mask, allocation_matrix)
+        constraints += [zero_entries <= SOLVER_EPSILON]
+        # Sum of allocations for each agent <= endowment
 
-    constraints += [cp.sum(allocation_matrix, axis=1) <= endowments]
-    # All allocations must be non-negative
-    constraints += [allocation_matrix >= 0]
+        constraints += [cp.sum(allocation_matrix, axis=1) <= distributable_resources]
+        # All allocations must be non-negative
+        constraints += [allocation_matrix >= 0]
 
-    # The weighted sum of received resources for agent i
-    weighted_sums = allocation_matrix.T[community_set, :] @ resource_values
-    log_terms = cp.log(weighted_sums)
-    objective_expr = cp.sum(alphas[community_set] @ log_terms)
+        # The weighted sum of received resources for agent i
+        weighted_sums = allocation_matrix.T[community_set, :] @ resource_values
+        log_terms = cp.log(weighted_sums)
+        objective_expr = cp.sum(alphas[community_set] @ log_terms)
 
-    prob = cp.Problem(cp.Maximize(objective_expr), constraints)
+        prob = cp.Problem(cp.Maximize(objective_expr), constraints)
 
-    result = prob.solve()
-    # try:
-    #     try:
-    #         result.solve()
-    #     except Exception:
-    #         result = prob.solve(solver=cp.ECOS)
-    # except Exception:
-    #     # Fallback to SCS if ECOS fails
-    #     result = prob.solve(solver=cp.SCS)
+        # result = prob.solve()
 
-    utility_vector = allocation_matrix.value.T @ resource_values
+        result = prob.solve()
 
-    return np.array(x_i.value), utility_vector
+        return allocation_matrix[community_center].value
