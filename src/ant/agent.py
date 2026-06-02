@@ -82,6 +82,9 @@ class BaseAgent:
         self.production_timeline = np.zeros(BASE_UTILITY_TIMELINE)
 
         self.reset()
+    
+    def post_market_initialization_hook(self) -> None:
+        pass
 
     def utility(self, received=None) -> float:
         """

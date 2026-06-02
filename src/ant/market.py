@@ -108,6 +108,9 @@ class Market:
         self.equilibrium_allocation = np.zeros((0, 0))
         self.equilibrium_length = 1
 
+        for agent in self.agents:
+            agent.post_market_initialization_hook()
+
     def step(self, time) -> None:
         """
         Execute one timestep of the market simulation.
