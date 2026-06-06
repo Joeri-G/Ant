@@ -1,7 +1,7 @@
 import cvxpy as cp
 import numpy as np
 
-SOLVER_EPSILON = np.finfo(float).eps * 2
+SOLVER_EPSILON = 1e-6
 
 def single_shot_COAP(X, endowments, resource_values, i, community_indices, neighbours) -> np.ndarray:
     """
