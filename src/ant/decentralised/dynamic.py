@@ -9,7 +9,7 @@ from ant.centralised import SOLVER_EPSILON
 from ant.decentralised.direct import ProportionalAgent
 from ant.agent import BaseAgent
 from ant.centralised import P4
-from ant.decentralised.utility import COAP, get_k_hop_community
+from ant.decentralised.utility import get_k_hop_community
 
 class COAPAgent(ProportionalAgent):
     def __init__(
@@ -26,20 +26,23 @@ class COAPAgent(ProportionalAgent):
         self.has_crashed = False
         self.report_crashes = report_crashes
         self.community_indices = []
+
+        self.COAP = None
     
     def post_market_initialization_hook(self):
         """
         Build the problem structure and solve it
         """
         self.community_indices = get_k_hop_community(self.market.graph, self.id, self.k)
+
     
     def allocate(self, time: int) -> np.ndarray:
         if time == 0 or self.has_crashed:
             # print(f"{self.id}@t={time}: USING PROP")
             return super().allocate(time)
         
-        # best_allocation_vector = COAP(self.market, self.community_indices, self.id, self.market.allocation_matrix, time)
-        best_allocation_vector = COAP(self.market.allocation_matrix, self.market.endowments, self.market.resource_values, self.id, self.community_indices, self.edges())
+        # best_allocation_vector = COAP(self.market.allocation_matrix, self.market.endowments, self.market.resource_values, self.id, self.community_indices, self.edges())
+        best_allocation_vector = self.market.COAP.solve(self.market.allocation_matrix, self.id, self.community_indices, self.edges())
 
         if best_allocation_vector is None:
             self.has_crashed = True

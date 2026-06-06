@@ -36,6 +36,8 @@ from typing import List, Optional, Iterator, Any, Union, TYPE_CHECKING
 
 from .agent import BaseAgent
 
+from .decentralised.COAP import ParameterizedCOAP
+
 
 class Market:
     """
@@ -110,6 +112,8 @@ class Market:
 
         for agent in self.agents:
             agent.post_market_initialization_hook()
+        
+        self.COAP = ParameterizedCOAP(n, self.endowments, self.resource_values)
 
     def step(self, time) -> None:
         """
