@@ -34,20 +34,25 @@ class COAPAgent(ProportionalAgent):
         self.community_indices = get_k_hop_community(self.market.graph, self.id, self.k)
     
     def allocate(self, time: int) -> np.ndarray:
-        if time == 0:
+        if time == 0 or self.has_crashed:
+            # print(f"{self.id}@t={time}: USING PROP")
             return super().allocate(time)
-            # allocation_vector = np.zeros(len(self.market))
-            # allocation_vector[self.edges()] = self.production_timeline[0] / len(self.edges())
-            # return allocation_vector
+        
+        # best_allocation_vector = COAP(self.market, self.community_indices, self.id, self.market.allocation_matrix, time)
+        best_allocation_vector = COAP(self.market.allocation_matrix, self.market.endowments, self.market.resource_values, self.id, self.community_indices, self.edges())
 
-
-        if self.has_crashed:
-            print("USING PROP")
-            return super().allocate(time)
-        try:
-            best_allocation_vector, _community_utility = COAP(self.market, self.community_indices, self.id, self.market.allocation_matrix)
-        except Exception as _e:
-            return super().allocate(time)
+        if best_allocation_vector is None:
             self.has_crashed = True
+            return super().allocate(time)
 
         return best_allocation_vector / self.endowment * self.production_timeline[time]
+
+        # try:
+        #     best_allocation_vector = COAP(self.market, self.community_indices, self.id, self.market.allocation_matrix, time)
+        # except Exception as e:
+        #     self.has_crashed = True
+        #     print(f"{self.id}@t={time} REVERTING TO PROP")
+        #     print(e)
+        #     return super().allocate(time)
+
+        # return best_allocation_vector
