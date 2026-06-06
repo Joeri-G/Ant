@@ -113,7 +113,7 @@ class Market:
         for agent in self.agents:
             agent.post_market_initialization_hook()
         
-        self.COAP = ParameterizedCOAP(n, self.endowments, self.resource_values)
+        # self.COAP = ParameterizedCOAP(n, self.endowments, self.resource_values)
 
     def step(self, time) -> None:
         """

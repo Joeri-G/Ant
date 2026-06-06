@@ -10,6 +10,7 @@ from ant.decentralised.direct import ProportionalAgent
 from ant.agent import BaseAgent
 from ant.centralised import P4
 from ant.decentralised.utility import get_k_hop_community
+from ant.decentralised.COAP import single_shot_COAP
 
 class COAPAgent(ProportionalAgent):
     def __init__(
@@ -41,8 +42,8 @@ class COAPAgent(ProportionalAgent):
             # print(f"{self.id}@t={time}: USING PROP")
             return super().allocate(time)
         
-        # best_allocation_vector = COAP(self.market.allocation_matrix, self.market.endowments, self.market.resource_values, self.id, self.community_indices, self.edges())
-        best_allocation_vector = self.market.COAP.solve(self.market.allocation_matrix, self.id, self.community_indices, self.edges())
+        best_allocation_vector = single_shot_COAP(self.market.allocation_matrix, self.market.endowments, self.market.resource_values, self.id, self.community_indices, self.edges())
+        # best_allocation_vector = self.market.COAP.solve(self.market.allocation_matrix, self.id, self.community_indices, self.edges())
 
         if best_allocation_vector is None:
             self.has_crashed = True
