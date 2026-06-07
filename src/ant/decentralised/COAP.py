@@ -1,7 +1,7 @@
 import cvxpy as cp
 import numpy as np
 
-SOLVER_EPSILON = 1e-6
+SOLVER_EPSILON = 1e-4
 
 def single_shot_COAP(X, endowments, resource_values, i, community_indices, neighbours) -> np.ndarray:
     """
@@ -61,120 +61,67 @@ def single_shot_COAP(X, endowments, resource_values, i, community_indices, neigh
            tol_gap_abs=1e-8,      # Absolute duality gap tolerance
            tol_gap_rel=1e-8,      # Relative duality gap tolerance  
            tol_feas=1e-8,         # Feasibility tolerance
-           max_iter=2000,         # Maximum iterations
+           max_iter=100,          # Maximum iterations
            verbose=False,         # Suppress output
-           time_limit=5.0)        # Time limit in seconds
+           time_limit=1.0)        # Time limit in seconds
     except Exception:
-        problem.solve(solver=cp.SCS, eps=1e-7, max_iters=5000, verbose=False)
+        problem.solve(solver=cp.SCS, eps=SOLVER_EPSILON, max_iters=100, verbose=False)
 
     return (x_i.value if problem.status in ['optimal', 'optimal_inaccurate'] else None)
 
-
-class ParameterizedCOAP:
+def make_fixed_agent_coap_solver(n, i, community_indices, neighbours, endowments, resource_values):
+    """Factory creating dedicated solver for single-agent repeated COAP optimization.
+    
+    All problem structure (agent index, community, neighborhood) is fixed at compile time.
+    Only X and its derived 'static' terms update between solves—maximizing efficiency.
+    
+    Parameters:
+    -----------
+    n : int
+        Total number of agents in market.
+    i : int
+        Static center agent being optimized.
+    community_indices : array_like
+        Agents in community C^k_i (includes i).
+    neighbours : array_like
+        Agents reachable from i (non-zero allocations allowed).
+    endowments : np.ndarray
+        Distributable resources per agent.
+    resource_values : np.ndarray
+        Value per unit of each agent's resource type.
+    
+    Returns:
+    --------
+    solve : Callable[[np.ndarray], np.ndarray|None]
+        Takes current allocation matrix X, returns optimal x_i for agent i.
     """
-    Parameterized optimizer for COAP convex optimization problems.
+    x_i = cp.Variable(n, nonneg=True)
+    static_val = cp.Parameter(n)
     
-    Problem structure remains constant; only X, i, neighbours, community_indices change.
-    resource_values and endowments are constant across solves.
-    """
-
-    def __init__(self, n, endowments, resource_values, eps=1e-9):
-        """
-        Initialize with constant structural parameters.
-        
-        Parameters:
-        -----------
-        n : int
-            Number of agents
-        endowments : np.ndarray
-            Vector of length n. Constant max distributable resources per agent.
-        resource_values : np.ndarray
-            Vector of length n. Constant value of each agent's resource type.
-        eps : float
-            Small epsilon for numerical stability in log
-        """
-        self.n = n
-        self.endowments = np.array(endowments)
-        self.resource_values = np.array(resource_values)
-        self.eps = eps
-        
-        # Variable (same across solves)
-        self.x_i = cp.Variable(n, nonneg=True)
-        
-        # Parameters that change between solves
-        self.X_param = cp.Parameter((n, n))
-        self.center_idx_param = cp.Parameter(integer=True)
-        self.community_param = cp.Parameter(n, boolean=True)  # mask for community members
-        self.neighbour_param = cp.Parameter(n, boolean=True)  # mask for reachable neighbors
-        
-        self.problem = self._build_problem()
+    # Pre-compute constant weights for community objective
+    community_array = np.array(list(community_indices))
+    community_resource_values = cp.Constant(resource_values[community_array])
+    community_weights = cp.Constant(endowments[community_array] * resource_values[community_array])
     
-    def _build_problem(self):
-        """Build CVXPY problem structure once."""
-        # Static received from others excluding center agent's contribution
-        static = cp.matmul(self.X_param.T, self.resource_values) - \
-                 self.X_param[self.center_idx_param] * self.resource_values[self.center_idx_param]
-        
-        # Objective: sum over community members only (using mask)
-        objective = cp.sum([
-            (self.endowments[j] * self.resource_values[j]) * 
-            cp.log(static[j] + self.x_i[j] * self.resource_values[self.center_idx_param] + self.eps)
-            for j in range(self.n) if self.endowments[j] > 0 or True  # Will use mask below
-        ])
-        
-        # Actually use mask properly:
-        # Rebuild with proper masking using element-wise operations
-        community_mask = self.community_param
-        neighbour_mask = self.neighbour_param
-        
-        terms = []
-        for j in range(self.n):
-            # Use condition that term is included if j is in community
-            pass  # We'll do explicit summation for clarity
-        
-        # Simpler approach: build dynamically in solve()
-        return None  # Rebuild needed due to dynamic community/neighbour
+    # Constraint masks precomputed (one-time cost)
+    neighbour_mask = cp.Constant(np.isin(np.arange(n), list(neighbours)).astype(float))
+    endowment_limit = cp.Constant(endowments[i])
     
-    def solve(self, X, i, community_indices, neighbours):
-        """
-        Solve optimization with new variable parameters.
+    obj = cp.sum(cp.multiply(community_weights, cp.log(static_val[community_array] + cp.multiply(x_i[community_array], community_resource_values) + SOLVER_EPSILON)))
+    cons = [
+        cp.sum(x_i) <= endowment_limit,
+        cp.multiply(x_i, 1 - neighbour_mask) <= 0  # Force zero allocation to non-neighbors (elementwise)
+    ]
+    prob = cp.Problem(cp.Maximize(obj), cons)
+    
+    def solve(X):
+        static_val.value = X.T @ resource_values - X[i] * resource_values[i]
         
-        Parameters:
-        -----------
-        X : np.ndarray
-            Current market allocation matrix (n x n). X[a,b] = amount FROM a TO b.
-        i : int
-            Index of center agent whose allocation we optimize.
-        community_indices : list or np.array
-            List of agents in community C^k_i (must include 'i' and neighbors).
-        neighbours : list or np.array
-            List of agents in neighbourhood N_i.
-            
-        Returns:
-        --------
-        x_new : np.ndarray
-            Optimal allocation vector for agent i (length n).
-            Returns None if optimization fails.
-        """
-        # Build fresh problem due to changing community/neighbour structure
-        static = self.X_param @ self.resource_values - \
-                 self.X_param[i] * self.resource_values[i]
+        try:
+            prob.solve(cp.CLARABEL, tol_gap_abs=1e-8, tol_gap_rel=1e-8,
+                       tol_feas=1e-8, max_iter=100, verbose=False, time_limit=1.0)
+        except: prob.solve(cp.SCS, eps=SOLVER_EPSILON, max_iters=200, verbose=False)
         
-        objective = cp.sum([
-            (self.endowments[j] * self.resource_values[j]) * 
-            cp.log(static[j] + self.x_i[j] * self.resource_values[i] + self.eps)
-            for j in community_indices
-        ])
-        
-        non_neighbours = [j for j in range(self.n) if j not in neighbours]
-        constraints = [
-            cp.sum(self.x_i) <= self.endowments[i],
-            self.x_i >= 0,
-        ] + [self.x_i[j] <= self.eps for j in non_neighbours]
-        
-        self.X_param.value = X
-        
-        prob = cp.Problem(cp.Maximize(objective), constraints)
-        prob.solve(verbose=False)
-        
-        return (self.x_i.value if prob.status in ['optimal', 'optimal_inaccurate'] else None)
+        return x_i.value if prob.status in ['optimal', 'optimal_inaccurate'] else None
+    
+    return solve

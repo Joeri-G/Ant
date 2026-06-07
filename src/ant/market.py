@@ -36,8 +36,6 @@ from typing import List, Optional, Iterator, Any, Union, TYPE_CHECKING
 
 from .agent import BaseAgent
 
-from .decentralised.COAP import ParameterizedCOAP
-
 
 class Market:
     """
@@ -109,12 +107,11 @@ class Market:
         self.equilibrium_utility = np.zeros(n)
         self.equilibrium_allocation = np.zeros((0, 0))
         self.equilibrium_length = 1
+        self.equilibrium_score = 1
 
         for agent in self.agents:
             agent.post_market_initialization_hook()
         
-        # self.COAP = ParameterizedCOAP(n, self.endowments, self.resource_values)
-
     def step(self, time) -> None:
         """
         Execute one timestep of the market simulation.
@@ -124,9 +121,24 @@ class Market:
 
         self.sharing_ratios = self.sharing_ratio_calculation(time)
 
+        MAX_INCONSISTENCY = 1e-4
+
         for agent in self.agents:
             if len(agent.edges()) > 0:
-                allocation_matrix[agent.id] = agent.allocate(time)
+                allocation_vector = agent.allocate(time)
+                # integrity check
+                if (allocation_vector<(-1 * MAX_INCONSISTENCY)).sum() > 0:
+                    print("NEGATIVE ALLOCATION SHOULD BE IMPOSSIBLE")
+                allocation_vector_copy = np.array(allocation_vector)
+                allocation_vector_copy[agent.edges()] = 0
+                if (np.sum(allocation_vector_copy)) > MAX_INCONSISTENCY:
+                    print("AGENT ALLOCATED RESOURCES OUTSIDE OF NEIGHBOURHOOD")
+                    print(f"Neighbourhood: {agent.edges()}")
+                    print(f"Nonzero allocations: {allocation_vector_copy > 0} : {allocation_vector_copy[allocation_vector_copy > 0]}")
+                if np.sum(allocation_vector) - agent.production_timeline[time] > MAX_INCONSISTENCY:
+                    print("AGENT ALLOCATED MORE THAN THE DISTRIBUTABLE RESOURCES")
+                    print(f"Allocated: {np.sum(allocation_matrix)}. Distributable: {agent.production_timeline[time]}. Difference: {np.abs(np.sum(allocation_matrix) - agent.production_timeline[time])}")
+                allocation_matrix[agent.id] = allocation_vector
 
         receive_matrix = allocation_matrix.T
 
@@ -153,8 +165,10 @@ class Market:
         )
         return self.production_vector
 
-    def market_utility(self) -> np.ndarray:
-        return np.array([agent.utility() for agent in self.agents])
+    def proportional_utility(self, market_utility_vector=None) -> np.ndarray:
+        if market_utility_vector is None:
+            market_utility_vector = np.array([agent.utility() for agent in self.agents])
+        return (self.endowments * self.resource_values) @ np.log(market_utility_vector)
 
     def market_loss(self, time, use_average_utility=True) -> float:
         """
@@ -174,16 +188,17 @@ class Market:
 
         return np.sqrt(np.sum(np.square(utility_difference))) / self.equilibrium_length
 
-    def set_market_equilibrium(self, eq_allocation, eq_utility):
+    def MARKET_SCORE_INSTEAD_OF_UTILITY(self, eq_allocation, eq_utility):
         self.equilibrium_utility = eq_utility
         self.equilibrium_allocation = eq_allocation
         self.equilibrium_length = np.linalg.norm(self.equilibrium_utility)
+        self.equilibrium_score = self.proportional_utility(self.equilibrium_utility)
 
     def simulate(
         self,
         duration: int,
         use_average_in_market_loss=True,
-        return_utility_instead_of_market_loss=False,
+        return_proportional_utility_instead_of_market_loss=False,
     ) -> List[float]:
         """
         Run the market simulation for a specified number of timesteps.
@@ -205,8 +220,8 @@ class Market:
         results = np.zeros(duration)
         for time in range(duration):
             self.step(time)
-            if return_utility_instead_of_market_loss:
-                val = np.sum(self.market_utility())
+            if return_proportional_utility_instead_of_market_loss:
+                val = np.sum(self.proportional_utility()) / self.equilibrium_score
             else:
                 val = self.market_loss(
                     time, use_average_utility=use_average_in_market_loss

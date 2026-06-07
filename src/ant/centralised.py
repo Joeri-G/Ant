@@ -8,7 +8,7 @@ import numpy as np
 import networkx as nx
 from typing import List, Tuple
 
-SOLVER_EPSILON = np.finfo(float).eps
+SOLVER_EPSILON = 1e-4
 
 
 def P4(market: Market) -> Tuple(np.ndarray, float):
@@ -16,6 +16,9 @@ def P4(market: Market) -> Tuple(np.ndarray, float):
     Calculates the market equilibrium based on the method described by Hellinga in 2025.
     Returns the optimal allocation matrix and utility vector
     """
+    if not nx.is_connected(market.graph):
+        print("WARNING: The market contains unconnected components. The solver will most likely crash.")
+
     agents: List[BaseAgent] = market.agents
     n = len(agents)
 
