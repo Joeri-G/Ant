@@ -188,7 +188,7 @@ class Market:
 
         return np.sqrt(np.sum(np.square(utility_difference))) / self.equilibrium_length
 
-    def MARKET_SCORE_INSTEAD_OF_UTILITY(self, eq_allocation, eq_utility):
+    def set_market_equilibrium(self, eq_allocation, eq_utility):
         self.equilibrium_utility = eq_utility
         self.equilibrium_allocation = eq_allocation
         self.equilibrium_length = np.linalg.norm(self.equilibrium_utility)
