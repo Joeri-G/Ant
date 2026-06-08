@@ -168,7 +168,7 @@ class Market:
     def proportional_utility(self, market_utility_vector=None) -> np.ndarray:
         if market_utility_vector is None:
             market_utility_vector = np.array([agent.utility() for agent in self.agents])
-        return (self.endowments * self.resource_values) @ np.log(market_utility_vector)
+        return (self.endowments * self.resource_values) @ np.log(market_utility_vector + 1e-6) # Add epsilon to prevent log(0)
 
     def market_loss(self, time, use_average_utility=True) -> float:
         """
