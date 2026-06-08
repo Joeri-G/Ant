@@ -12,6 +12,7 @@ from ant.centralised import P4
 from ant.decentralised.utility import get_k_hop_community
 from ant.decentralised.COAP import single_shot_COAP, make_fixed_agent_coap_solver
 
+
 class COAPAgent(ProportionalAgent):
     def __init__(
         self,
@@ -29,20 +30,26 @@ class COAPAgent(ProportionalAgent):
         self.community_indices = []
 
         self.COAP = None
-    
+
     def post_market_initialization_hook(self):
         """
         Build the problem structure and solve it
         """
         self.community_indices = get_k_hop_community(self.market.graph, self.id, self.k)
-        self.COAP = make_fixed_agent_coap_solver(len(self.market), self.id, self.community_indices, self.edges(), self.market.endowments, self.market.resource_values)
+        self.COAP = make_fixed_agent_coap_solver(
+            len(self.market),
+            self.id,
+            self.community_indices,
+            self.edges(),
+            self.market.endowments,
+            self.market.resource_values,
+        )
 
-    
     def allocate(self, time: int) -> np.ndarray:
         if time == 0 or self.has_crashed:
             # print(f"{self.id}@t={time}: USING PROP")
             return super().allocate(time)
-        
+
         # best_allocation_vector = single_shot_COAP(self.market.allocation_matrix, self.market.endowments, self.market.resource_values, self.id, self.community_indices, self.edges())
 
         best_allocation_vector = self.COAP(self.market.allocation_matrix)

@@ -111,7 +111,7 @@ class Market:
 
         for agent in self.agents:
             agent.post_market_initialization_hook()
-        
+
     def step(self, time) -> None:
         """
         Execute one timestep of the market simulation.
@@ -127,17 +127,24 @@ class Market:
             if len(agent.edges()) > 0:
                 allocation_vector = agent.allocate(time)
                 # integrity check
-                if (allocation_vector<(-1 * MAX_INCONSISTENCY)).sum() > 0:
+                if (allocation_vector < (-1 * MAX_INCONSISTENCY)).sum() > 0:
                     print("NEGATIVE ALLOCATION SHOULD BE IMPOSSIBLE")
                 allocation_vector_copy = np.array(allocation_vector)
                 allocation_vector_copy[agent.edges()] = 0
                 if (np.sum(allocation_vector_copy)) > MAX_INCONSISTENCY:
                     print("AGENT ALLOCATED RESOURCES OUTSIDE OF NEIGHBOURHOOD")
                     print(f"Neighbourhood: {agent.edges()}")
-                    print(f"Nonzero allocations: {allocation_vector_copy > 0} : {allocation_vector_copy[allocation_vector_copy > 0]}")
-                if np.sum(allocation_vector) - agent.production_timeline[time] > MAX_INCONSISTENCY:
+                    print(
+                        f"Nonzero allocations: {allocation_vector_copy > 0} : {allocation_vector_copy[allocation_vector_copy > 0]}"
+                    )
+                if (
+                    np.sum(allocation_vector) - agent.production_timeline[time]
+                    > MAX_INCONSISTENCY
+                ):
                     print("AGENT ALLOCATED MORE THAN THE DISTRIBUTABLE RESOURCES")
-                    print(f"Allocated: {np.sum(allocation_matrix)}. Distributable: {agent.production_timeline[time]}. Difference: {np.abs(np.sum(allocation_matrix) - agent.production_timeline[time])}")
+                    print(
+                        f"Allocated: {np.sum(allocation_matrix)}. Distributable: {agent.production_timeline[time]}. Difference: {np.abs(np.sum(allocation_matrix) - agent.production_timeline[time])}"
+                    )
                 allocation_matrix[agent.id] = allocation_vector
 
         receive_matrix = allocation_matrix.T
@@ -168,7 +175,9 @@ class Market:
     def proportional_utility(self, market_utility_vector=None) -> np.ndarray:
         if market_utility_vector is None:
             market_utility_vector = np.array([agent.utility() for agent in self.agents])
-        return (self.endowments * self.resource_values) @ np.log(market_utility_vector + 1e-6) # Add epsilon to prevent log(0)
+        return (self.endowments * self.resource_values) @ np.log(
+            market_utility_vector + 1e-6
+        )  # Add epsilon to prevent log(0)
 
     def market_loss(self, time, use_average_utility=True) -> float:
         """

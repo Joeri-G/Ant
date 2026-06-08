@@ -17,7 +17,9 @@ def P4(market: Market) -> Tuple(np.ndarray, float):
     Returns the optimal allocation matrix and utility vector
     """
     if not nx.is_connected(market.graph):
-        print("WARNING: The market contains unconnected components. The solver will most likely crash.")
+        print(
+            "WARNING: The market contains unconnected components. The solver will most likely crash."
+        )
 
     agents: List[BaseAgent] = market.agents
     n = len(agents)
