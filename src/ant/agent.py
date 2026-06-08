@@ -79,6 +79,8 @@ class BaseAgent:
             else BASE_DISTRIBUTABLE_VARIANCE
         )
 
+        self.has_allocated = False
+
         self.production_timeline = np.zeros(BASE_UTILITY_TIMELINE)
 
         self.reset()
@@ -116,6 +118,7 @@ class BaseAgent:
                 for _ in range(BASE_UTILITY_TIMELINE)
             ]
         )
+        self.has_allocated = False
 
     def produce(self, time: int) -> int:
         """
@@ -158,6 +161,7 @@ class BaseAgent:
             1 - ratio
         )
         allocation_vector[self.edges()] = neighbour_vector
+        self.has_allocated = True
         return allocation_vector
 
     def receive(self, incoming: List[float], time=0) -> None:

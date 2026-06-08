@@ -46,11 +46,8 @@ class COAPAgent(ProportionalAgent):
         )
 
     def allocate(self, time: int) -> np.ndarray:
-        if time == 0 or self.has_crashed:
-            # print(f"{self.id}@t={time}: USING PROP")
+        if not self.has_allocated or self.has_crashed:
             return super().allocate(time)
-
-        # best_allocation_vector = single_shot_COAP(self.market.allocation_matrix, self.market.endowments, self.market.resource_values, self.id, self.community_indices, self.edges())
 
         best_allocation_vector = self.COAP(self.market.allocation_matrix)
 
@@ -59,13 +56,3 @@ class COAPAgent(ProportionalAgent):
             return super().allocate(time)
 
         return best_allocation_vector / self.endowment * self.production_timeline[time]
-
-        # try:
-        #     best_allocation_vector = COAP(self.market, self.community_indices, self.id, self.market.allocation_matrix, time)
-        # except Exception as e:
-        #     self.has_crashed = True
-        #     print(f"{self.id}@t={time} REVERTING TO PROP")
-        #     print(e)
-        #     return super().allocate(time)
-
-        # return best_allocation_vector

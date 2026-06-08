@@ -1,8 +1,8 @@
-from ..market import Market, BaseAgent
 import cvxpy as cp
 import numpy as np
 import networkx as nx
 from typing import List, Tuple, Set
+import random
 
 
 def k_highest_indices(lst, k):
@@ -43,3 +43,51 @@ def create_grid_graph(n):
     G = nx.relabel_nodes(G_temp, mapping)
 
     return G
+
+
+def select_nodes_no_shared_neighbor(G, k, random_source=random):
+    """
+    Randomly select up to k nodes from graph G such that no two
+    selected nodes share a common neighbor.
+
+    Parameters:
+    -----------
+    G : nx.Graph
+        The input NetworkX graph
+    k : int
+        Maximum number of nodes to select
+
+    Returns:
+    --------
+    list
+        List of selected node IDs
+    """
+    if len(G.nodes()) == 0:
+        return []
+
+    selected = []
+    forbidden = set()
+
+    available_nodes = list(G.nodes())
+
+    while len(selected) < k and available_nodes:
+        candidates = [node for node in available_nodes if node not in forbidden]
+
+        if not candidates:
+            break
+
+        chosen = random_source.choice(candidates)
+        selected.append(chosen)
+
+        # Update forbidden set:
+        # Any node that shares a neighbor with 'chosen' becomes forbidden
+        # This includes neighbors of neighbors (but not 'chosen' itself)
+        neighbors_of_chosen = set(G.neighbors(chosen))
+
+        for neighbor in neighbors_of_chosen:
+            for nn in G.neighbors(neighbor):
+                if nn != chosen:
+                    forbidden.add(nn)
+
+        available_nodes.remove(chosen)
+    return selected

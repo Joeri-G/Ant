@@ -33,6 +33,9 @@ Nomenclature:
 import numpy as np
 import networkx as nx
 from typing import List, Optional, Iterator, Any, Union, TYPE_CHECKING
+# from copy import deepcopy
+import random
+from .decentralised.utility import select_nodes_no_shared_neighbor
 
 from .agent import BaseAgent
 
@@ -109,42 +112,40 @@ class Market:
         self.equilibrium_length = 1
         self.equilibrium_score = 1
 
+        self.random_source = random
+        self.random_source.seed(seed)
+
         for agent in self.agents:
             agent.post_market_initialization_hook()
 
-    def step(self, time) -> None:
+    def step(self, time, disjoint_async_simulation=False) -> None:
         """
         Execute one timestep of the market simulation.
         """
 
-        allocation_matrix = np.zeros((len(self), len(self)), dtype=float)
+        allocation_matrix = np.array(self.allocation_matrix)
 
         self.sharing_ratios = self.sharing_ratio_calculation(time)
 
-        MAX_INCONSISTENCY = 1e-4
+        EPSILON = 1e-4
 
-        for agent in self.agents:
+        if disjoint_async_simulation:
+            agent_subset = select_nodes_no_shared_neighbor(
+                self.graph,
+                int(np.ceil(np.log(len(self)))),
+                random_source=self.random_source,
+            )
+            allocating_agents = [self.agents[i] for i in agent_subset]
+        else:
+            allocating_agents = self.agents
+
+        for agent in allocating_agents:
             if len(agent.edges()) > 0:
                 allocation_vector = agent.allocate(time)
-                # integrity check
-                if (allocation_vector < (-1 * MAX_INCONSISTENCY)).sum() > 0:
-                    print("NEGATIVE ALLOCATION SHOULD BE IMPOSSIBLE")
-                allocation_vector_copy = np.array(allocation_vector)
-                allocation_vector_copy[agent.edges()] = 0
-                if (np.sum(allocation_vector_copy)) > MAX_INCONSISTENCY:
-                    print("AGENT ALLOCATED RESOURCES OUTSIDE OF NEIGHBOURHOOD")
-                    print(f"Neighbourhood: {agent.edges()}")
-                    print(
-                        f"Nonzero allocations: {allocation_vector_copy > 0} : {allocation_vector_copy[allocation_vector_copy > 0]}"
-                    )
-                if (
-                    np.sum(allocation_vector) - agent.production_timeline[time]
-                    > MAX_INCONSISTENCY
-                ):
-                    print("AGENT ALLOCATED MORE THAN THE DISTRIBUTABLE RESOURCES")
-                    print(
-                        f"Allocated: {np.sum(allocation_matrix)}. Distributable: {agent.production_timeline[time]}. Difference: {np.abs(np.sum(allocation_matrix) - agent.production_timeline[time])}"
-                    )
+                # Make sure my horribly coded strategies don't contaminate the simulation with NaNs
+                if np.isnan(np.sum(allocation_vector)):
+                    print("wat de hellie??")
+                    raise RuntimeError(f"t={time}, agent={agent.id}, allocation={allocation_vector}, X={self.allocation_matrix}, X'={allocation_matrix}")
                 allocation_matrix[agent.id] = allocation_vector
 
         receive_matrix = allocation_matrix.T
@@ -208,6 +209,7 @@ class Market:
         duration: int,
         use_average_in_market_loss=True,
         return_proportional_utility_instead_of_market_loss=False,
+        disjoint_async_simulation=False,
     ) -> List[float]:
         """
         Run the market simulation for a specified number of timesteps.
@@ -228,7 +230,7 @@ class Market:
 
         results = np.zeros(duration)
         for time in range(duration):
-            self.step(time)
+            self.step(time, disjoint_async_simulation)
             if return_proportional_utility_instead_of_market_loss:
                 val = np.sum(self.proportional_utility()) / self.equilibrium_score
             else:
