@@ -118,7 +118,7 @@ class Market:
         for agent in self.agents:
             agent.post_market_initialization_hook()
 
-    def step(self, time, disjoint_async_simulation=False) -> None:
+    def step(self, time, sequential_simulation=False) -> None:
         """
         Execute one timestep of the market simulation.
         """
@@ -129,13 +129,14 @@ class Market:
 
         EPSILON = 1e-4
 
-        if disjoint_async_simulation:
-            agent_subset = select_nodes_no_shared_neighbor(
-                self.graph,
-                int(np.ceil(np.log(len(self)))),
-                random_source=self.random_source,
-            )
-            allocating_agents = [self.agents[i] for i in agent_subset]
+        if sequential_simulation:
+            # agent_subset = select_nodes_no_shared_neighbor(
+            #     self.graph,
+            #     int(np.ceil(np.log(len(self)))),
+            #     random_source=self.random_source,
+            # )
+            # allocating_agents = [self.agents[i] for i in agent_subset]
+            allocating_agents = [self.agents[time % len(self)]]
         else:
             allocating_agents = self.agents
 
@@ -209,7 +210,7 @@ class Market:
         duration: int,
         use_average_in_market_loss=True,
         return_proportional_utility_instead_of_market_loss=False,
-        disjoint_async_simulation=False,
+        sequential_simulation=False,
     ) -> List[float]:
         """
         Run the market simulation for a specified number of timesteps.
@@ -230,7 +231,7 @@ class Market:
 
         results = np.zeros(duration)
         for time in range(duration):
-            self.step(time, disjoint_async_simulation)
+            self.step(time, sequential_simulation)
             if return_proportional_utility_instead_of_market_loss:
                 val = np.sum(self.proportional_utility()) / self.equilibrium_score
             else:
