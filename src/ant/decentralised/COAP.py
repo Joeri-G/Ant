@@ -73,7 +73,12 @@ def single_shot_COAP(
 
 
 def make_fixed_agent_coap_solver(
-    n, i, community_indices, neighbours, endowments, resource_values
+    n,
+    i,
+    community_indices,
+    neighbours,
+    endowments,
+    resource_values,
 ):
     """Optimized factory creating dedicated solver for single-agent repeated COAP optimization.
 
@@ -158,6 +163,123 @@ def make_fixed_agent_coap_solver(
         try:
             prob.solve(cp.CLARABEL, max_iter=200, time_limit=1.0, verbose=False)
         except Exception:
+            prob.solve(cp.SCS, eps=SOLVER_EPSILON, max_iters=200, verbose=False)
+
+        if prob.status not in ["optimal", "optimal_inaccurate"]:
+            return None
+
+        full_solution = np.zeros(n)
+        full_solution[neighbour_array] = x_i_neighbours.value
+
+        return full_solution
+
+    return solve
+
+
+def make_adaptive_distributable_resources_coap_solver(
+    n, i, community_indices, neighbours, resource_values, SOLVER_EPSILON=1e-6
+):
+    """Optimized factory creating dedicated solver for single-agent repeated COAP optimization
+    with adaptive endowment support.
+
+    Fixes DCPError by declaring parameters as 'nonnegative', allowing CVXPY to validate
+    the curvature of 'weight * log(variable)' at construction time.
+    """
+    # Map market ids to local ids for neighbours
+    neighbour_array = np.array(sorted(neighbours))
+    num_neigh = len(neighbour_array)
+    neighbour_to_local_idx = {idx: j for j, idx in enumerate(neighbour_array)}
+
+    community_array = np.array(list(community_indices))
+
+    # Find community members which are also neighbours
+    community_members_in_neighbourhood_mask = np.isin(community_array, neighbour_array)
+    community_members_in_neighbourhood = community_array[
+        community_members_in_neighbourhood_mask
+    ]
+
+    # Map community ids to local ids
+    community_local_idx = np.array(
+        [neighbour_to_local_idx[c] for c in community_members_in_neighbourhood]
+    )
+
+    # Decision Variable
+    x_i_neighbours = cp.Variable(num_neigh, nonneg=True)
+
+    # --- CRITICAL FIX START ---
+    # Define parameters with 'nonnegative=True'.
+    # This tells CVXPY at construction time that these values will never be negative.
+    # This allows 'multiply(non_negative_param, log(concave_expr))' to pass DCP checks.
+    static_val_param = cp.Parameter(
+        len(community_members_in_neighbourhood), nonneg=True
+    )
+    community_weights_param = cp.Parameter(
+        len(community_members_in_neighbourhood), nonneg=True
+    )
+    # --- CRITICAL FIX END ---
+
+    # Resource values (Static constants)
+    community_resource_values = cp.Constant(
+        resource_values[community_members_in_neighbourhood]
+    )
+
+    # Objective: Sum( weight_i * log( static + var * res_val + epsilon ) )
+    # Now DCP compliant because weights are declared nonnegative
+    objective = cp.sum(
+        cp.multiply(
+            community_weights_param,
+            cp.log(
+                static_val_param
+                + cp.multiply(
+                    x_i_neighbours[community_local_idx], community_resource_values
+                )
+                + SOLVER_EPSILON
+            ),
+        )
+    )
+
+    # Constraint Parameter (endowment must be nonnegative)
+    centre_endowment_param = cp.Parameter(nonneg=True)
+
+    constraints = [cp.sum(x_i_neighbours) <= centre_endowment_param]
+    prob = cp.Problem(cp.Maximize(objective), constraints)
+
+    def solve(X, endowments):
+        """
+        Solve the COAP problem.
+        """
+        # Compute received utility based on current allocation X
+        # Formula from paper: X.T @ v - X[i] * v
+        # Note: Ensure no negative values propagate here if data is noisy
+        received_utility = X.T @ resource_values - X[i] * resource_values
+
+        # Extract for the relevant community members
+        received_utility_neighbours = received_utility[
+            community_members_in_neighbourhood
+        ]
+
+        # Update Parameters
+        # Ensure non-negativity explicitly for safety
+        current_static = np.maximum(received_utility_neighbours, 0)
+        static_val_param.value = current_static
+
+        # Calculate weights: endowment[j] * resource_value[j]
+        # We trust the input, but clipping ensures parameter constraint holds
+        current_weights = (
+            endowments[community_members_in_neighbourhood]
+            * resource_values[community_members_in_neighbourhood]
+        )
+        current_weights = np.maximum(current_weights, 0)
+        community_weights_param.value = current_weights
+
+        # Update center endowment
+        centre_endowment_param.value = max(endowments[i], 0)
+
+        try:
+            # Try CLARABEL first
+            prob.solve(cp.CLARABEL, max_iter=200, time_limit=1.0, verbose=False)
+        except Exception:
+            # Fallback to SCS
             prob.solve(cp.SCS, eps=SOLVER_EPSILON, max_iters=200, verbose=False)
 
         if prob.status not in ["optimal", "optimal_inaccurate"]:

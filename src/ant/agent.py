@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 BASE_ENDOWMENT_RANGE = (1, 5)
 BASE_VALUE_RANGE = (1, 5)
 BASE_DISTRIBUTABLE_VARIANCE = 0.1
-BASE_UTILITY_TIMELINE = 5000
+BASE_UTILITY_TIMELINE = 8000
 
 
 class BaseAgent:
@@ -52,6 +52,8 @@ class BaseAgent:
         self.id = id
         self.market = market
         self.random = Random()
+
+        self.last_allocated = 0
 
         if seed is not None:
             self.random.seed(seed)
@@ -162,6 +164,7 @@ class BaseAgent:
         )
         allocation_vector[self.edges()] = neighbour_vector
         self.has_allocated = True
+        self.last_allocated = time
         return allocation_vector
 
     def receive(self, incoming: List[float], time=0) -> None:
@@ -204,6 +207,10 @@ class BaseAgent:
 
     def edges(self) -> List[int]:
         return self.market.edges(self.id)
+
+    @property
+    def last_distributed_resources(self):
+        return self.production_timeline[self.last_allocated]
 
     def __eq__(self, other):
         assert isinstance(other, BaseAgent)

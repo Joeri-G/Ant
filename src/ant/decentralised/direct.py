@@ -15,7 +15,9 @@ class ProportionalAgent(BaseAgent):
         """
         num_neighbors = len(self.edges())
 
-        if not self.has_allocated:  # default -> spread across neighbours. Kickstarts prop market
+        if (
+            not self.has_allocated
+        ):  # default -> spread across neighbours. Kickstarts prop market
             self.has_allocated = True
             fractions = (
                 np.ones(num_neighbors) * self.production_timeline[time] / num_neighbors
@@ -23,11 +25,11 @@ class ProportionalAgent(BaseAgent):
             allocation_vector = np.zeros(len(self.market))
             allocation_vector[self.edges()] = fractions
             return allocation_vector
-        
+
         total_received = np.sum(self.received @ self.market.resource_values)
         if total_received == 0:
             total_received = 1
-        
+
         return (
             self.received * self.market.resource_values / total_received
         ) * self.production_timeline[time]

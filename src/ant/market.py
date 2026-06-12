@@ -33,6 +33,7 @@ Nomenclature:
 import numpy as np
 import networkx as nx
 from typing import List, Optional, Iterator, Any, Union, TYPE_CHECKING
+
 # from copy import deepcopy
 import random
 from .decentralised.utility import select_nodes_no_shared_neighbor
@@ -141,13 +142,14 @@ class Market:
             allocating_agents = self.agents
 
         for agent in allocating_agents:
-            if len(agent.edges()) > 0:
-                allocation_vector = agent.allocate(time)
-                # Make sure my horribly coded strategies don't contaminate the simulation with NaNs
-                if np.isnan(np.sum(allocation_vector)):
-                    print("wat de hellie??")
-                    raise RuntimeError(f"t={time}, agent={agent.id}, allocation={allocation_vector}, X={self.allocation_matrix}, X'={allocation_matrix}")
-                allocation_matrix[agent.id] = allocation_vector
+            allocation_vector = agent.allocate(time)
+            # Make sure my horribly coded strategies don't contaminate the simulation with NaNs
+            if np.isnan(np.sum(allocation_vector)):
+                print("wat de hellie??")
+                raise RuntimeError(
+                    f"t={time}, agent={agent.id}, allocation={allocation_vector}, X={self.allocation_matrix}, X'={allocation_matrix}"
+                )
+            allocation_matrix[agent.id] = allocation_vector
 
         receive_matrix = allocation_matrix.T
 
@@ -266,6 +268,10 @@ class Market:
         else:
             raise TypeError("either provide an id or an agent")
         return np.fromiter(nx.neighbors(self.graph, idx), int)
+
+    @property
+    def distributable_resources(self):
+        return np.array([agent.last_distributed_resources for agent in self.agents])
 
     def __repr__(self) -> str:
         """Return a string representation of the market."""
