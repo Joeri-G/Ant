@@ -235,7 +235,7 @@ class Market:
         for time in range(duration):
             self.step(time, sequential_simulation)
             if return_proportional_utility_instead_of_market_loss:
-                val = np.sum(self.proportional_utility()) / self.equilibrium_score
+                val = np.sum(self.proportional_utility())
             else:
                 val = self.market_loss(
                     time, use_average_utility=use_average_in_market_loss
