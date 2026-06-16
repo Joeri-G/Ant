@@ -4,7 +4,7 @@ import numpy as np
 SOLVER_EPSILON = 1e-4
 
 
-def single_shot_COAP(
+def single_shot_CMAP(
     X, endowments, resource_values, i, community_indices, neighbours
 ) -> np.ndarray:
     """
@@ -72,7 +72,7 @@ def single_shot_COAP(
     return x_i.value if problem.status in ["optimal", "optimal_inaccurate"] else None
 
 
-def make_fixed_agent_coap_solver(
+def make_fixed_agent_CMAP_solver(
     n,
     i,
     community_indices,
@@ -80,7 +80,7 @@ def make_fixed_agent_coap_solver(
     endowments,
     resource_values,
 ):
-    """Optimized factory creating dedicated solver for single-agent repeated COAP optimization.
+    """Optimized factory creating dedicated solver for single-agent repeated CMAP optimization.
 
     Parameters:
     -----------
@@ -176,10 +176,10 @@ def make_fixed_agent_coap_solver(
     return solve
 
 
-def make_adaptive_distributable_resources_coap_solver(
+def make_adaptive_distributable_resources_CMAP_solver(
     n, i, community_indices, neighbours, resource_values, SOLVER_EPSILON=1e-6
 ):
-    """Optimized factory creating dedicated solver for single-agent repeated COAP optimization
+    """Optimized factory creating dedicated solver for single-agent repeated CMAP optimization
     with adaptive endowment support.
 
     Fixes DCPError by declaring parameters as 'nonnegative', allowing CVXPY to validate
@@ -246,7 +246,7 @@ def make_adaptive_distributable_resources_coap_solver(
 
     def solve(X, endowments):
         """
-        Solve the COAP problem.
+        Solve the CMAP problem.
         """
         # Compute received utility based on current allocation X
         # Formula from paper: X.T @ v - X[i] * v
