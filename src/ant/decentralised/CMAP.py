@@ -205,25 +205,17 @@ def make_adaptive_distributable_resources_CMAP_solver(
 
     # Decision Variable
     x_i_neighbours = cp.Variable(num_neigh, nonneg=True)
-
-    # --- CRITICAL FIX START ---
-    # Define parameters with 'nonnegative=True'.
-    # This tells CVXPY at construction time that these values will never be negative.
-    # This allows 'multiply(non_negative_param, log(concave_expr))' to pass DCP checks.
     static_val_param = cp.Parameter(
         len(community_members_in_neighbourhood), nonneg=True
     )
     community_weights_param = cp.Parameter(
         len(community_members_in_neighbourhood), nonneg=True
     )
-    # --- CRITICAL FIX END ---
-
     # Resource values (Static constants)
     community_resource_values = cp.Constant(
         resource_values[community_members_in_neighbourhood]
     )
 
-    # Objective: Sum( weight_i * log( static + var * res_val + epsilon ) )
     # Now DCP compliant because weights are declared nonnegative
     objective = cp.sum(
         cp.multiply(
