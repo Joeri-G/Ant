@@ -1,7 +1,7 @@
 import cvxpy as cp
 import numpy as np
 
-SOLVER_EPSILON = 1e-4
+SOLVER_EPSILON = 1e-6
 
 
 def single_shot_CMAP(
@@ -161,9 +161,9 @@ def make_fixed_agent_CMAP_solver(
         static_val_param.value = received_utility_neighbours
 
         try:
-            prob.solve(cp.CLARABEL, max_iter=200, time_limit=1.0, verbose=False)
+            prob.solve(cp.CLARABEL, max_iter=50, time_limit=1.0, verbose=False)
         except Exception:
-            prob.solve(cp.SCS, eps=SOLVER_EPSILON, max_iters=200, verbose=False)
+            prob.solve(cp.SCS, eps=SOLVER_EPSILON, max_iters=50, verbose=False)
 
         if prob.status not in ["optimal", "optimal_inaccurate"]:
             return None
