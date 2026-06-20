@@ -16,6 +16,7 @@ dependencies = [
     "pytest",
     "ruff>=0.15.12",
     "scipy>=1.17.1",
+    "seaborn>=0.13.2",
 ]
 
 [build-system]

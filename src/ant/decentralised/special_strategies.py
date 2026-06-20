@@ -40,10 +40,8 @@ class PettyAgent(BaseAgent):
             
         available_resources = self.production_timeline[time]
         
-        # Exact reciprocity: return what was received + delta
         target_amounts = self.received[edges] + self.delta
         
-        # negative delta check
         target_amounts = np.maximum(0, target_amounts)
         
         total_target = np.sum(target_amounts)
@@ -69,18 +67,15 @@ class PettyAgent(BaseAgent):
 class ImitationAgent(BaseAgent):
     def __init__(self, id: int, market: Optional[Market] = None, seed: Optional[int] = None, **kwargs):
         super().__init__(id, market=market, seed=seed, **kwargs)
-        # Start with a standard BaseAgent
         self.copied_agent = BaseAgent(id=id, market=market, seed=seed)
 
     def _resolve_target_agent(self, agent: BaseAgent) -> BaseAgent:
         """
         Recursively drills down through wrappers to find the pure strategy currently being executed.
         """
-        # Unwrap ImitationAgent chains
         if isinstance(agent, ImitationAgent) and hasattr(agent, "copied_agent"):
             return self._resolve_target_agent(agent.copied_agent)
             
-        # Unwrap MixedAgent wrappers (using duck-typing to avoid NameErrors)
         if hasattr(agent, "internal_agents") and agent.internal_agents:
             weights = getattr(agent, "weights", [])
             # Pick the highest weighted strategy, or default to the first one
@@ -105,11 +100,9 @@ class ImitationAgent(BaseAgent):
             if sharing_ratios[self.id] < best_ratio and best_agent_id != self.id:
                 best_agent = self.market.agents[best_agent_id]
                 
-                # Drill down to the pure strategy being executed by the best agent
                 target_agent = self._resolve_target_agent(best_agent)
                 target_type = type(target_agent).__name__
                 
-                # PERFORMANCE OPTIMIZATION: Only instantiate if the strategy class actually changed
                 if type(self.copied_agent) is not type(target_agent):
                     if target_type == "PettyAgent":
                         self.copied_agent = target_agent.__class__(
@@ -122,13 +115,11 @@ class ImitationAgent(BaseAgent):
                     else:
                         self.copied_agent = target_agent.__class__(id=self.id, market=self.market)
                 else:
-                    # If we are already running this strategy, just update its dynamic parameters
                     if target_type == "PettyAgent":
                         self.copied_agent.delta = getattr(target_agent, "delta", 0.0)
                     elif target_type == "SatisficingAgent":
                         self.copied_agent.aspiration_level = getattr(target_agent, "aspiration_level", 1.0)
                         
-        # 1. Sync state downward
         self.copied_agent.received = self.received
         self.copied_agent.received_history = self.received_history
         self.copied_agent.production_timeline = self.production_timeline
@@ -137,10 +128,8 @@ class ImitationAgent(BaseAgent):
         if hasattr(self, 'last_allocation_fractions'):
             self.copied_agent.last_allocation_fractions = self.last_allocation_fractions
             
-        # 2. Delegate the allocation
         allocation = self.copied_agent.allocate(time)
         
-        # 3. Sync state upward
         if hasattr(self.copied_agent, 'last_allocation_fractions'):
             self.last_allocation_fractions = self.copied_agent.last_allocation_fractions
             
@@ -164,7 +153,6 @@ class MixedAgent(BaseAgent):
         if not self.internal_agents:
             return allocation_vector
             
-        # Sync state from the wrapper MixedAgent to its internal strategy instances
         for agent in self.internal_agents:
             agent.received = self.received
             agent.received_history = self.received_history
@@ -204,12 +192,10 @@ class SatisficingAgent(BaseAgent):
             min_sharing_ratio_edge = np.argmin(sharing_ratios[edges])
             neighbour = edges[min_sharing_ratio_edge]
         else:
-            # First round has no sharing ratio history, pick random neighbor
             neighbour = self.random.choice(edges)
 
         allocation_vector[neighbour] = self.production_timeline[time]
         
-        # Save fractions for future rounds
         self.last_allocation_fractions = np.zeros(len(self.market))
         self.last_allocation_fractions[neighbour] = 1.0
 
